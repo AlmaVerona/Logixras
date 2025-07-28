@@ -168,9 +168,10 @@ class AdminPanel {
         if (editForm) {
             editForm.addEventListener('submit', (e) => this.handleEditSubmit(e));
         }
+    }
 
     // Parse de valor monetário
-    parseValue(valueStr) {
+    parseValue = (valueStr) => {
         if (!valueStr) return 0;
         
         // Remover caracteres não numéricos exceto vírgula e ponto
@@ -181,7 +182,7 @@ class AdminPanel {
         
         const parsed = parseFloat(normalized);
         return isNaN(parsed) ? 0 : parsed;
-    }
+    };
 
     checkLoginStatus() {
         const isLoggedIn = localStorage.getItem('admin_logged_in') === 'true';
@@ -340,7 +341,6 @@ class AdminPanel {
 
         try {
             console.log('📊 Iniciando pré-visualização aprimorada...');
-        try {
             const textarea = document.getElementById('bulkDataTextarea');
             const rawText = textarea?.value ?? '';
             
@@ -387,12 +387,12 @@ class AdminPanel {
                     linha: index + 1,
                 });
             });
-        }
+
             const result = {
                 validos: parsedList,
                 comErro: failedList,
             };
-    }
+
             console.log('📊 Análise concluída:', {
                 totalLinhas: lines.length,
                 validos: result.validos.length,
@@ -400,13 +400,12 @@ class AdminPanel {
             });
 
             this.showBulkPreviewLight(result);
-    // Exibir pré-visualização aprimorada
         } catch (err) {
             console.error("Erro ao analisar dados colados:", err);
             alert(err.message || "Erro inesperado ao analisar os dados.");
         }
     }
-    displayEnhancedPreview(result) {
+
     // Mostrar preview com validação leve
     showBulkPreviewLight(result) {
         const previewSection = document.getElementById('bulkPreviewSection');
@@ -524,7 +523,7 @@ class AdminPanel {
             }
         }
     }
-        const previewSection = document.getElementById('bulkPreviewSection');
+
     // Iniciar importação com dados validados
     startBulkImportLight(validRecords) {
         console.log('🚀 Iniciando importação de', validRecords.length, 'registros válidos');
@@ -557,7 +556,7 @@ class AdminPanel {
         // Iniciar importação
         this.enhancedBulkImport.startImport();
     }
-        const previewContainer = document.getElementById('bulkPreviewContainer');
+
     // Construir endereço completo
     buildFullAddress(record) {
         const parts = [
@@ -570,6 +569,10 @@ class AdminPanel {
         
         return parts.join(' - ');
     }
+
+    displayEnhancedPreview(result) {
+        const previewSection = document.getElementById('bulkPreviewSection');
+        const previewContainer = document.getElementById('bulkPreviewContainer');
         const confirmButton = document.getElementById('confirmBulkImportButton');
         const previewSummary = document.getElementById('previewSummary');
         
@@ -831,9 +834,17 @@ class AdminPanel {
         };
     }
 
-    buildAddressFromFields({ rua, numero, complemento, bairro, cep, cidade, estado, pais }) {
-        return `${rua}, ${numero}${complemento ? ` - ${complemento}` : ''} - ${bairro} - ${cidade}/${estado} - CEP: ${cep} - ${pais}`;
-    }
+    buildAddressFromFields = (fields) => {
+        const { endereco, complemento, bairro, cidade, uf, cep } = fields;
+        
+        let address = endereco || '';
+        if (complemento) address += ` - ${complemento}`;
+        if (bairro) address += ` - ${bairro}`;
+        if (cidade && uf) address += ` - ${cidade}/${uf}`;
+        if (cep) address += ` - CEP: ${cep}`;
+        
+        return address.trim();
+    };
 
     displayBulkPreview() {
         const previewSection = document.getElementById('bulkPreviewSection');

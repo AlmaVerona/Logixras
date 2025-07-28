@@ -336,20 +336,23 @@ class AdminPanel {
     async previewBulkDataEnhanced() {
         console.log('🔍 Iniciando análise inteligente dos dados...');
         
+        // Check if textarea exists and has data before processing
+        const textarea = document.getElementById('bulkDataTextarea');
+        if (!textarea) {
+            this.showBulkError('Campo de dados não encontrado. Recarregue a página.');
+            return;
+        }
+        
+        const rawData = textarea.value;
+        if (!rawData || !rawData.trim()) {
+            this.showBulkError('Nenhum dado foi colado para análise. Por favor, cole os dados da planilha na caixa de texto.');
+            return;
+        }
+        
         // Verificar se há dados na textarea
         const textarea = document.getElementById('bulkDataTextarea');
         if (!textarea) {
             this.showBulkError('Textarea não encontrada');
-            return;
-        }
-        
-        const rawData = textarea.value.trim();
-        if (!rawData) {
-            this.showBulkError('Por favor, cole os dados da planilha na caixa de texto antes de analisar.');
-            return;
-        }
-        
-        try {
             console.log('📊 Dados brutos recebidos:', rawData.substring(0, 200) + '...');
             
             // Usar o sistema de importação aprimorado

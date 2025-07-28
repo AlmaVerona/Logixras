@@ -354,8 +354,13 @@ class AdminPanel {
     }
 
     // Função para pré-visualizar dados colados com validação leve
-    previewBulkDataEnhanced(rawText) {
+    previewBulkDataEnhanced(pastedText) {
         try {
+            // Verificar se pastedText é válido
+            if (!pastedText || typeof pastedText !== 'string') {
+                throw new Error("Nenhum dado foi colado para análise.");
+            }
+            
             const expectedHeaders = [
                 "Nome do Cliente",
                 "Email do Cliente", 
@@ -373,8 +378,13 @@ class AdminPanel {
                 "País"
             ];
 
-            const lines = rawText.trim().split("\n");
+            const lines = pastedText.trim().split("\n");
             const data = lines.map((line, index) => {
+                // Verificar se line é válido antes de usar split
+                if (!line || typeof line !== 'string') {
+                    throw new Error(`Erro na linha ${index + 1}: Linha inválida ou vazia`);
+                }
+                
                 const cols = line.split("\t");
                 if (cols.length !== expectedHeaders.length) {
                     throw new Error(`Erro na linha ${index + 1}: Número incorreto de colunas (${cols.length}/${expectedHeaders.length})`);
@@ -382,7 +392,8 @@ class AdminPanel {
 
                 const row = {};
                 expectedHeaders.forEach((header, i) => {
-                    row[header] = cols[i].trim();
+                    // Verificar se cols[i] existe antes de usar trim
+                    row[header] = cols[i] ? cols[i].trim() : '';
                 });
 
                 return row;

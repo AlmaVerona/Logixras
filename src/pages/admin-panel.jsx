@@ -345,7 +345,7 @@ class AdminPanel {
             // Processar dados usando o sistema aprimorado
             const result = this.bulkImportSystem.processData(textarea.value);
             
-            const result = this.previewBulkDataEnhanced(rawText);
+            const result2 = this.previewBulkDataEnhanced(rawText);
             this.showBulkPreviewLight(result);
         } catch (err) {
             console.error("Erro ao analisar dados colados:", err);
@@ -539,6 +539,7 @@ class AdminPanel {
             } else {
                 confirmButton.style.display = 'none';
             }
+            if (result.validos.length > 0) {
                 confirmButton.style.display = 'inline-block';
                 confirmButton.onclick = () => this.startBulkImportLight(result.validos);
             } else {
@@ -582,9 +583,8 @@ class AdminPanel {
 
     // Construir endereço completo
     buildFullAddress(record) {
-            console.log('✅ Análise concluída:', result);
+        const parts = [
             record.endereco,
-            // Exibir preview com seções separadas
             record.bairro,
             `${record.cidade}/${record.uf}`,
             `CEP: ${record.cep}`
@@ -640,6 +640,7 @@ class AdminPanel {
                                 Leads válidos e prontos
                             </p>
                         </div>
+                    </div>
                     <div>
                         <strong>Tamanho do Lote:</strong> ${batchSize} registros
                     </div>
@@ -1199,6 +1200,7 @@ class AdminPanel {
                                 Duplicados ou inválidos
                             </p>
                         </div>
+                    </div>
                     </div>
                     <div>
                 

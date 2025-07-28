@@ -334,22 +334,32 @@ class AdminPanel {
 
     // Pré-visualização aprimorada com contagem de linhas
     previewBulkDataEnhanced() {
-        const textarea = document.getElementById('bulkDataTextarea');
-        if (!textarea || !textarea.value.trim()) {
-            this.showNotification('Por favor, cole os dados na caixa de texto', 'error');
+        // Verificar se há dados na textarea antes de processar
+        const bulkDataTextarea = document.getElementById('bulkDataTextarea');
+        if (!bulkDataTextarea) {
+            console.error('❌ Textarea não encontrada');
             return;
         }
-
+        
+        const rawData = bulkDataTextarea.value.trim();
+        if (!rawData) {
+            this.showBulkError('Por favor, cole os dados da planilha na caixa de texto antes de analisar.');
+            return;
+        }
+        
+        console.log('🔍 Iniciando análise inteligente dos dados...');
+        
         try {
-            console.log('📊 Iniciando pré-visualização aprimorada...');
-            // Processar dados usando o sistema aprimorado
-            const result = this.bulkImportSystem.processData(textarea.value);
+            const result = this.bulkImport.processData(rawData);
             
-            const result2 = this.previewBulkDataEnhanced(rawText);
-            this.showBulkPreviewLight(result);
-        } catch (err) {
-            console.error("Erro ao analisar dados colados:", err);
-            alert(err.message || "Erro inesperado ao analisar os dados.");
+            if (result.success) {
+                this.showBulkPreview(result);
+            } else {
+                this.showBulkError(result.error || 'Erro desconhecido ao processar dados');
+            }
+        } catch (error) {
+            console.error('❌ Erro na análise:', error);
+            this.showBulkError('Erro inesperado: ' + error.message);
         }
     }
 

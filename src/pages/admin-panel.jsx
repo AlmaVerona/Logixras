@@ -169,6 +169,18 @@ class AdminPanel {
             editForm.addEventListener('submit', (e) => this.handleEditSubmit(e));
         }
 
+    // Parse de valor monetário
+    parseValue(valueStr) {
+        if (!valueStr) return 0;
+        
+        // Remover caracteres não numéricos exceto vírgula e ponto
+        const cleaned = valueStr.replace(/[^\d,.-]/g, '');
+        
+        // Converter vírgula para ponto se for decimal brasileiro
+        const normalized = cleaned.replace(',', '.');
+        
+        const parsed = parseFloat(normalized);
+        return isNaN(parsed) ? 0 : parsed;
     }
 
     checkLoginStatus() {
@@ -328,34 +340,236 @@ class AdminPanel {
 
         try {
             console.log('📊 Iniciando pré-visualização aprimorada...');
+        try {
+            const textarea = document.getElementById('bulkDataTextarea');
+            const rawText = textarea?.value ?? '';
             
-            // Contar linhas
-            const lines = textarea.value.trim().split('\n').filter(line => line.trim());
-            console.log(`📈 Total de linhas detectadas: ${lines.length}`);
-            const rawData = document.getElementById('bulkDataTextarea')?.value ?? '';
-            
-            if (!rawData.trim()) {
-                throw new Error('Nenhum dado foi inserido na área de texto');
+            if (typeof rawText !== 'string' || !rawText.trim()) {
+                throw new Error("Nenhum dado foi colado para análise.");
             }
-            // Processar dados
-            const result = this.enhancedBulkImport.processData(textarea.value);
-            
-            if (result.success) {
-                this.displayEnhancedPreview(result);
-            } else {
-                throw new Error(result.error);
-            }
-            
-        } catch (error) {
-            console.error('❌ Erro ao processar dados:', error);
-            this.showNotification('Erro ao processar dados: ' + error.message, 'error');
+
+            const EXPECTED_COLS = 14;
+            const lines = rawText.split(/\r?\n/).filter(line => line.trim());
+            const parsedList = [];
+            const failedList = [];
+
+            lines.forEach((line, index) => {
+                const cols = line.split('\t');
+                
+                if (cols.length < EXPECTED_COLS) {
+                    failedList.push({
+                        line,
+                        reason: `Apenas ${cols.length} colunas (mínimo: ${EXPECTED_COLS})`,
+                        index: index + 1,
+                    });
+                    return;
+                }
+
+                // Mapear campos da lista (ajuste conforme necessário)
+                const [nome, cpf, telefone, email, endereco, complemento, bairro, cidade, uf, cep, produto, operador, valor, obs] = cols;
+
+                parsedList.push({
+                    nome: nome?.trim(),
+                    cpf: cpf?.trim(),
+                    telefone: telefone?.trim(),
+                    email: email?.trim(),
+                    endereco: endereco?.trim(),
+                    complemento: complemento?.trim(),
+                    bairro: bairro?.trim(),
+                    cidade: cidade?.trim(),
+                    uf: uf?.trim(),
+                    cep: cep?.trim(),
+                    produto: produto?.trim(),
+                    operador: operador?.trim(),
+                    valor: valor?.trim(),
+                    observacao: obs?.trim(),
+                    linhaOriginal: line,
+                    linha: index + 1,
+                });
+            });
+        }
+            const result = {
+                validos: parsedList,
+                comErro: failedList,
+            };
+    }
+            console.log('📊 Análise concluída:', {
+                totalLinhas: lines.length,
+                validos: result.validos.length,
+                comErro: result.comErro.length
+            });
+
+            this.showBulkPreviewLight(result);
+    // Exibir pré-visualização aprimorada
+        } catch (err) {
+            console.error("Erro ao analisar dados colados:", err);
+            alert(err.message || "Erro inesperado ao analisar os dados.");
         }
     }
-
-    // Exibir pré-visualização aprimorada
     displayEnhancedPreview(result) {
+    // Mostrar preview com validação leve
+    showBulkPreviewLight(result) {
         const previewSection = document.getElementById('bulkPreviewSection');
         const previewContainer = document.getElementById('bulkPreviewContainer');
+        const confirmButton = document.getElementById('confirmBulkImportButton');
+        const previewSummary = document.getElementById('previewSummary');
+        
+        if (!previewSection || !previewContainer) return;
+        
+        // Mostrar seção de preview
+        previewSection.style.display = 'block';
+        
+        // Criar tabela de preview
+        let tableHtml = `
+            <div style="padding: 20px; background: #f8f9fa;">
+                <h5 style="color: #345C7A; margin-bottom: 15px;">
+                    📊 Resultado da Análise
+                </h5>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div style="background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;">
+                        <h6 style="color: #155724; margin-bottom: 10px;">✅ Registros Válidos</h6>
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #155724;">${result.validos.length}</div>
+                    </div>
+                    <div style="background: #f8d7da; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545;">
+                        <h6 style="color: #721c24; margin-bottom: 10px;">❌ Registros com Erro</h6>
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #721c24;">${result.comErro.length}</div>
+                    </div>
+                </div>
+        `;
+        
+        // Mostrar erros se houver
+        if (result.comErro.length > 0) {
+            tableHtml += `
+                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ffc107;">
+                    <h6 style="color: #856404; margin-bottom: 10px;">⚠️ Linhas com Problemas:</h6>
+                    <div style="max-height: 150px; overflow-y: auto;">
+            `;
+            
+            result.comErro.forEach(erro => {
+                tableHtml += `
+                    <div style="margin-bottom: 8px; padding: 8px; background: #fff; border-radius: 4px; font-size: 0.9rem;">
+                        <strong>Linha ${erro.index}:</strong> ${erro.reason}
+                        <br><small style="color: #666;">${erro.line.substring(0, 100)}${erro.line.length > 100 ? '...' : ''}</small>
+                    </div>
+                `;
+            });
+            
+            tableHtml += `
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Preview dos primeiros registros válidos
+        if (result.validos.length > 0) {
+            tableHtml += `
+                <div style="background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6;">
+                    <div style="background: #345C7A; color: white; padding: 10px; font-weight: bold;">
+                        📋 Preview dos Primeiros Registros (${Math.min(5, result.validos.length)} de ${result.validos.length})
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="padding: 8px; border: 1px solid #dee2e6;">Nome</th>
+                                    <th style="padding: 8px; border: 1px solid #dee2e6;">CPF</th>
+                                    <th style="padding: 8px; border: 1px solid #dee2e6;">Telefone</th>
+                                    <th style="padding: 8px; border: 1px solid #dee2e6;">Email</th>
+                                    <th style="padding: 8px; border: 1px solid #dee2e6;">Cidade</th>
+                                    <th style="padding: 8px; border: 1px solid #dee2e6;">Produto</th>
+                                    <th style="padding: 8px; border: 1px solid #dee2e6;">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            result.validos.slice(0, 5).forEach(item => {
+                tableHtml += `
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">${item.nome || '-'}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">${item.cpf || '-'}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">${item.telefone || '-'}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">${item.email || '-'}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">${item.cidade || '-'}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">${item.produto || '-'}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">${item.valor || '-'}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        
+        tableHtml += `</div>`;
+        
+        previewContainer.innerHTML = tableHtml;
+        
+        // Atualizar resumo
+        if (previewSummary) {
+            previewSummary.textContent = `${result.validos.length} registros válidos, ${result.comErro.length} com erro`;
+        }
+        
+        // Mostrar botão de confirmação se há registros válidos
+        if (confirmButton) {
+            if (result.validos.length > 0) {
+                confirmButton.style.display = 'inline-block';
+                confirmButton.onclick = () => this.startBulkImportLight(result.validos);
+            } else {
+                confirmButton.style.display = 'none';
+            }
+        }
+    }
+        const previewSection = document.getElementById('bulkPreviewSection');
+    // Iniciar importação com dados validados
+    startBulkImportLight(validRecords) {
+        console.log('🚀 Iniciando importação de', validRecords.length, 'registros válidos');
+        
+        // Converter para formato esperado pelo sistema de importação
+        const formattedData = validRecords.map(record => ({
+            nome_completo: record.nome || '',
+            cpf: record.cpf?.replace(/[^\d]/g, '') || '',
+            telefone: record.telefone || '',
+            email: record.email || '',
+            endereco: this.buildFullAddress(record),
+            produtos: [{
+                nome: record.produto || 'Kit 12 caixas organizadoras + brinde',
+                preco: this.parseValue(record.valor) || 67.9
+            }],
+            valor_total: this.parseValue(record.valor) || 67.9,
+            meio_pagamento: 'PIX',
+            origem: 'direto',
+            etapa_atual: 1,
+            status_pagamento: 'pendente',
+            order_bumps: []
+        }));
+        
+        // Usar o sistema de importação aprimorado
+        this.enhancedBulkImport.bulkData = { leads: formattedData };
+        this.enhancedBulkImport.totalRecords = formattedData.length;
+        this.enhancedBulkImport.batches = this.enhancedBulkImport.createBatches(formattedData);
+        this.enhancedBulkImport.saveToCache();
+        
+        // Iniciar importação
+        this.enhancedBulkImport.startImport();
+    }
+        const previewContainer = document.getElementById('bulkPreviewContainer');
+    // Construir endereço completo
+    buildFullAddress(record) {
+        const parts = [
+            record.endereco,
+            record.complemento,
+            record.bairro,
+            `${record.cidade}/${record.uf}`,
+            `CEP: ${record.cep}`
+        ].filter(part => part && part.trim());
+        
+        return parts.join(' - ');
+    }
         const confirmButton = document.getElementById('confirmBulkImportButton');
         const previewSummary = document.getElementById('previewSummary');
         

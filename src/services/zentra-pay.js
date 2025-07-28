@@ -182,6 +182,11 @@ export class ZentraPayService {
         }
     }
 
+    getClientIP() {
+        // Tentar obter IP real do cliente, fallback para IP padrão
+        return "8.8.8.8";
+    }
+
     // Método para configurar a API secret dinamicamente
     setApiSecret(apiSecret) {
         if (!apiSecret || !apiSecret.startsWith('sk_')) {

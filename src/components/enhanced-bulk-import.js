@@ -59,22 +59,6 @@ export class EnhancedBulkImport {
     async processData(rawData) {
         console.log('📊 Processando dados para importação em massa...');
         
-        // Validação inicial dos dados
-        if (!rawData || typeof rawData !== 'string') {
-            return {
-                success: false,
-                error: 'O campo de dados em massa não pode estar vazio.'
-            };
-        }
-        
-        const trimmedData = rawData.trim();
-        if (!trimmedData) {
-            return {
-                success: false,
-                error: 'O campo de dados em massa não pode estar vazio.'
-            };
-        }
-        
         try {
             // Parse dos dados (reutilizar lógica existente)
             const parsedData = this.parseRawData(rawData);
@@ -102,23 +86,14 @@ export class EnhancedBulkImport {
             console.error('❌ Erro ao processar dados:', error);
             return {
                 success: false,
-                error: `Falha ao pré-visualizar dados: ${error.message || error.toString() || 'Erro desconhecido'}`
+                error: error.message
             };
         }
     }
 
     // Parse dos dados brutos (reutilizar lógica existente)
     parseRawData(rawData) {
-        console.log('🔍 Iniciando parse dos dados brutos...');
-        
         const lines = rawData.trim().split('\n').filter(line => line.trim());
-        
-        if (lines.length === 0) {
-            throw new Error('Nenhuma linha válida encontrada nos dados colados.');
-        }
-        
-        console.log(`📊 Total de linhas para processar: ${lines.length}`);
-        
         const leads = [];
         const duplicatesSet = new Set();
         const duplicatesRemoved = [];
@@ -129,43 +104,13 @@ export class EnhancedBulkImport {
 
             const fields = line.split(/\t+|\s{2,}/).map(field => field.trim());
             
-            console.log(`📝 Linha ${i + 1}: ${fields.length} campos encontrados`);
-            
-            // Validação rigorosa do número de colunas
             if (fields.length < 4) {
-                throw new Error(`Linha ${i + 1} inválida: número de colunas insuficiente. Esperado pelo menos 4 campos (Nome, Email, Telefone, CPF), encontrado ${fields.length}.\n\nDados da linha: "${line}"\n\nVerifique se os dados estão separados por TAB ou múltiplos espaços.`);
-            }
-            
-            // Extrair campos na ordem correta: Nome, Email, Telefone, CPF, Produto, Valor, etc.
-            const [nome, email, telefone, cpf] = fields;
-            
-            console.log(`🔍 Linha ${i + 1} - Nome: "${nome}", Email: "${email}", Telefone: "${telefone}", CPF: "${cpf}"`);
-            
-            // Validação de campo Nome
-            if (!nome || nome.trim() === '') {
-                throw new Error(`Linha ${i + 1} inválida: campo Nome é obrigatório.`);
-            }
-            
-            // Validação de campo CPF
-            if (!cpf || cpf.trim() === '') {
-                throw new Error(`Linha ${i + 1} inválida: campo CPF é obrigatório.`);
+                console.warn(`Linha ${i + 1} ignorada: poucos campos`);
+                continue;
             }
 
+            const [nome, email, telefone, cpf, produto, valor, rua, numero, complemento, bairro, cep, cidade, estado, pais] = fields;
             const cleanCPF = (cpf || '').replace(/[^\d]/g, '');
-            
-            // Verificar se o CPF parece ser um email (indicando ordem incorreta das colunas)
-            if (cpf && cpf.includes('@')) {
-                throw new Error(`Linha ${i + 1} inválida: CPF contém um email ("${cpf}"). Verifique se as colunas estão na ordem correta:\n\n1. Nome completo\n2. Email\n3. Telefone\n4. CPF\n5. Produto\n6. Valor\n7. Endereço...\n\nParece que os dados estão em ordem diferente da esperada.`);
-            }
-            
-            // Verificar se o CPF parece ser um nome (indicando ordem incorreta)
-            if (cpf && cpf.split(' ').length > 1 && !/^\d/.test(cpf)) {
-                throw new Error(`Linha ${i + 1} inválida: CPF parece ser um nome ("${cpf}"). Verifique se as colunas estão na ordem correta:\n\n1. Nome completo\n2. Email\n3. Telefone\n4. CPF\n5. Produto\n6. Valor\n7. Endereço...\n\nParece que os dados estão em ordem diferente da esperada.`);
-            }
-            
-            if (cleanCPF.length !== 11) {
-                throw new Error(`Linha ${i + 1} inválida: CPF deve ter 11 dígitos. CPF fornecido: "${cpf}" (${cleanCPF.length} dígitos após limpeza).\n\nVerifique se:\n- O CPF está na 4ª coluna\n- As colunas estão na ordem: Nome, Email, Telefone, CPF, Produto, Valor...`);
-            }
 
             if (duplicatesSet.has(cleanCPF)) {
                 duplicatesRemoved.push({ nome, cpf: cleanCPF });
@@ -173,42 +118,24 @@ export class EnhancedBulkImport {
             }
             duplicatesSet.add(cleanCPF);
 
-            // Extrair campos restantes com validação
-            const produto = fields[4] || 'Kit 12 caixas organizadoras + brinde';
-            const valor = fields[5] || '67.9';
-            const rua = fields[6] || '';
-            const numero = fields[7] || '';
-            const complemento = fields[8] || '';
-            const bairro = fields[9] || '';
-            const cep = fields[10] || '';
-            const cidade = fields[11] || '';
-            const estado = fields[12] || '';
-            const pais = fields[13] || 'BR';
-            
-            // Validar valor numérico
-            const valorNumerico = parseFloat(valor);
-            if (isNaN(valorNumerico) || valorNumerico <= 0) {
-                throw new Error(`Linha ${i + 1} inválida: valor deve ser um número positivo. Valor fornecido: "${valor}".\n\nVerifique se:\n- O valor está na 6ª coluna\n- É um número válido (ex: 67.90)\n- As colunas estão na ordem correta`);
-            }
-
             const endereco = this.buildAddressFromFields({
-                rua,
-                numero,
-                complemento,
-                bairro,
-                cep,
-                cidade,
-                estado,
-                pais
+                rua: rua || '',
+                numero: numero || '',
+                complemento: complemento || '',
+                bairro: bairro || '',
+                cep: cep || '',
+                cidade: cidade || '',
+                estado: estado || '',
+                pais: pais || 'BR'
             });
 
             leads.push({
-                nome_completo: nome.trim(),
-                email: (email || '').trim(),
-                telefone: (telefone || '').trim(),
+                nome_completo: nome || '',
+                email: email || '',
+                telefone: telefone || '',
                 cpf: cleanCPF,
-                produto: produto.trim(),
-                valor_total: valorNumerico,
+                produto: produto || 'Kit 12 caixas organizadoras + brinde',
+                valor_total: parseFloat(valor) || 67.9,
                 endereco: endereco,
                 meio_pagamento: 'PIX',
                 origem: 'direto',
@@ -216,15 +143,11 @@ export class EnhancedBulkImport {
                 status_pagamento: 'pendente',
                 order_bumps: [],
                 produtos: [{
-                    nome: produto.trim(),
-                    preco: valorNumerico
+                    nome: produto || 'Kit 12 caixas organizadoras + brinde',
+                    preco: parseFloat(valor) || 67.9
                 }],
                 lineNumber: i + 1
             });
-        }
-
-        if (leads.length === 0) {
-            throw new Error('Nenhum lead válido foi encontrado nos dados colados. Verifique o formato dos dados.');
         }
 
         return {

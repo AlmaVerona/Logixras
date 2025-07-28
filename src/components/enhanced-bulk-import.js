@@ -59,6 +59,22 @@ export class EnhancedBulkImport {
     async processData(rawData) {
         console.log('📊 Processando dados para importação em massa...');
         
+        // Validação inicial dos dados
+        if (!rawData || typeof rawData !== 'string') {
+            return {
+                success: false,
+                error: 'O campo de dados em massa não pode estar vazio.'
+            };
+        }
+        
+        const trimmedData = rawData.trim();
+        if (!trimmedData) {
+            return {
+                success: false,
+                error: 'O campo de dados em massa não pode estar vazio.'
+            };
+        }
+        
         try {
             // Parse dos dados (reutilizar lógica existente)
             const parsedData = this.parseRawData(rawData);
@@ -86,9 +102,7 @@ export class EnhancedBulkImport {
             console.error('❌ Erro ao processar dados:', error);
             return {
                 success: false,
-                error: (error?.message && error.message.trim()) || 
-                       (error?.toString && error.toString().trim() !== '[object Object]' && error.toString().trim()) || 
-                       'Erro desconhecido ao processar dados'
+                error: `Falha ao pré-visualizar dados: ${error.message || error.toString() || 'Erro desconhecido'}`
             };
         }
     }
@@ -96,6 +110,11 @@ export class EnhancedBulkImport {
     // Parse dos dados brutos (reutilizar lógica existente)
     parseRawData(rawData) {
         const lines = rawData.trim().split('\n').filter(line => line.trim());
+        
+        if (lines.length === 0) {
+            throw new Error('Nenhuma linha válida encontrada nos dados colados.');
+        }
+        
         const leads = [];
         const duplicatesSet = new Set();
         const duplicatesRemoved = [];
@@ -106,13 +125,27 @@ export class EnhancedBulkImport {
 
             const fields = line.split(/\t+|\s{2,}/).map(field => field.trim());
             
+            // Validação rigorosa do número de colunas
             if (fields.length < 4) {
-                console.warn(`Linha ${i + 1} ignorada: poucos campos`);
-                continue;
+                throw new Error(`Linha ${i + 1} inválida: número de colunas insuficiente. Esperado pelo menos 4 campos (Nome, Email, Telefone, CPF), encontrado ${fields.length}.`);
+            }
+            
+            // Validação adicional para campos obrigatórios
+            const [nome, email, telefone, cpf] = fields;
+            
+            if (!nome || nome.trim() === '') {
+                throw new Error(`Linha ${i + 1} inválida: campo Nome é obrigatório.`);
+            }
+            
+            if (!cpf || cpf.trim() === '') {
+                throw new Error(`Linha ${i + 1} inválida: campo CPF é obrigatório.`);
             }
 
-            const [nome, email, telefone, cpf, produto, valor, rua, numero, complemento, bairro, cep, cidade, estado, pais] = fields;
             const cleanCPF = (cpf || '').replace(/[^\d]/g, '');
+            
+            if (cleanCPF.length !== 11) {
+                throw new Error(`Linha ${i + 1} inválida: CPF deve ter 11 dígitos. CPF fornecido: "${cpf}".`);
+            }
 
             if (duplicatesSet.has(cleanCPF)) {
                 duplicatesRemoved.push({ nome, cpf: cleanCPF });
@@ -120,24 +153,42 @@ export class EnhancedBulkImport {
             }
             duplicatesSet.add(cleanCPF);
 
+            // Extrair campos restantes com validação
+            const produto = fields[4] || 'Kit 12 caixas organizadoras + brinde';
+            const valor = fields[5] || '67.9';
+            const rua = fields[6] || '';
+            const numero = fields[7] || '';
+            const complemento = fields[8] || '';
+            const bairro = fields[9] || '';
+            const cep = fields[10] || '';
+            const cidade = fields[11] || '';
+            const estado = fields[12] || '';
+            const pais = fields[13] || 'BR';
+            
+            // Validar valor numérico
+            const valorNumerico = parseFloat(valor);
+            if (isNaN(valorNumerico) || valorNumerico <= 0) {
+                throw new Error(`Linha ${i + 1} inválida: valor deve ser um número positivo. Valor fornecido: "${valor}".`);
+            }
+
             const endereco = this.buildAddressFromFields({
-                rua: rua || '',
-                numero: numero || '',
-                complemento: complemento || '',
-                bairro: bairro || '',
-                cep: cep || '',
-                cidade: cidade || '',
-                estado: estado || '',
-                pais: pais || 'BR'
+                rua,
+                numero,
+                complemento,
+                bairro,
+                cep,
+                cidade,
+                estado,
+                pais
             });
 
             leads.push({
-                nome_completo: nome || '',
-                email: email || '',
-                telefone: telefone || '',
+                nome_completo: nome.trim(),
+                email: (email || '').trim(),
+                telefone: (telefone || '').trim(),
                 cpf: cleanCPF,
-                produto: produto || 'Kit 12 caixas organizadoras + brinde',
-                valor_total: parseFloat(valor) || 67.9,
+                produto: produto.trim(),
+                valor_total: valorNumerico,
                 endereco: endereco,
                 meio_pagamento: 'PIX',
                 origem: 'direto',
@@ -145,11 +196,15 @@ export class EnhancedBulkImport {
                 status_pagamento: 'pendente',
                 order_bumps: [],
                 produtos: [{
-                    nome: produto || 'Kit 12 caixas organizadoras + brinde',
-                    preco: parseFloat(valor) || 67.9
+                    nome: produto.trim(),
+                    preco: valorNumerico
                 }],
                 lineNumber: i + 1
             });
+        }
+
+        if (leads.length === 0) {
+            throw new Error('Nenhum lead válido foi encontrado nos dados colados. Verifique o formato dos dados.');
         }
 
         return {

@@ -336,20 +336,19 @@ class AdminPanel {
     async previewBulkDataEnhanced() {
         console.log('🔍 Iniciando análise inteligente dos dados...');
         
-        // Verificar se a textarea existe
-        const bulkDataTextareaElement = document.getElementById('bulkDataTextarea');
-        if (!bulkDataTextareaElement) {
-            this.showBulkError('Textarea não encontrada');
+        // Verificar se há dados na textarea antes de processar
+        const textarea = document.getElementById('bulkDataTextarea');
+        if (!textarea) {
+            alert('Erro: Campo de texto não encontrado.');
             return;
         }
-
-        // Verificar se há dados na textarea
-        const rawData = bulkDataTextareaElement.value.trim();
+        
+        const rawData = textarea.value.trim();
         if (!rawData) {
-            this.showBulkError('Nenhum dado foi colado para análise. Por favor, cole os dados da planilha na caixa de texto.');
+            alert('Por favor, cole os dados da planilha na caixa de texto antes de analisar.');
             return;
         }
-
+        
         try {
             console.log('📊 Dados brutos recebidos:', rawData.substring(0, 200) + '...');
             

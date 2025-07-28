@@ -336,7 +336,7 @@ class AdminPanel {
     async previewBulkDataEnhanced() {
         console.log('🔍 Iniciando análise inteligente dos dados...');
         
-        // Verificar se o textarea existe e tem conteúdo
+        // Check if textarea exists and has data
         const textarea = document.getElementById('bulkDataTextarea');
         if (!textarea) {
             this.showBulkError('Erro: Campo de texto não encontrado.');

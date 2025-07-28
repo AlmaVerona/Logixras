@@ -379,6 +379,7 @@ class AdminPanel {
             ];
 
             const lines = pastedText.trim().split("\n");
+            const seenInList = new Set(); // Para detectar duplicados na mesma lista
             const data = lines.map((line, index) => {
                 // Verificar se line é válido antes de usar split
                 if (!line || typeof line !== 'string') {
@@ -395,6 +396,18 @@ class AdminPanel {
                     // Verificar se cols[i] existe antes de usar trim
                     row[header] = cols[i] ? cols[i].trim() : '';
                 });
+
+                // Verificar duplicados na mesma lista (nome + documento)
+                const nome = row["Nome do Cliente"] || '';
+                const documento = row["Documento"] || '';
+                const duplicateKey = `${nome.toLowerCase()}_${documento.replace(/[^\d]/g, '')}`;
+                
+                if (seenInList.has(duplicateKey)) {
+                    // Ignorar silenciosamente duplicados na mesma lista
+                    console.log(`Duplicado ignorado na linha ${index + 1}: ${nome} - ${documento}`);
+                    return;
+                }
+                seenInList.add(duplicateKey);
 
                 return row;
             });

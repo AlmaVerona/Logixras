@@ -95,9 +95,14 @@ export class EnhancedBulkImport {
     parseRawData(rawData) {
         const lines = rawData.trim().split('\n').filter(line => line.trim());
         const leads = [];
-        const duplicatesSet = new Set();
-        const duplicatesRemoved = [];
+        const duplicatesInList = new Set(); // Duplicados na mesma lista
+        const duplicatesRemoved = []; // Duplicados na mesma lista (para log)
+        const databaseDuplicates = []; // Duplicados no banco
         const parseErrors = [];
+        
+        // Obter leads existentes no banco para verificar duplicatas
+        const existingLeads = JSON.parse(localStorage.getItem('leads') || '[]');
+        const existingCPFs = new Set(existingLeads.map(lead => lead.cpf ? lead.cpf.replace(/[^\d]/g, '') : ''));
 
         for (let i = 0; i < lines.length; i++) {
             try {
@@ -118,12 +123,28 @@ export class EnhancedBulkImport {
 
                 const [nome, email, telefone, cpf, produto, valor, rua, numero, complemento, bairro, cep, cidade, estado, pais] = fields;
                 const cleanCPF = (cpf || '').replace(/[^\d]/g, '');
+                const nomeClean = (nome || '').toLowerCase().trim();
+                const duplicateKey = `${nomeClean}_${cleanCPF}`;
 
-                if (duplicatesSet.has(cleanCPF)) {
+                // Verificar duplicados na mesma lista (silencioso)
+                if (duplicatesInList.has(duplicateKey)) {
                     duplicatesRemoved.push({ nome, cpf: cleanCPF });
+                    console.log(`Duplicado na lista ignorado: ${nome} - ${cleanCPF}`);
                     continue;
                 }
-                duplicatesSet.add(cleanCPF);
+                duplicatesInList.add(duplicateKey);
+                
+                // Verificar duplicados no banco de dados
+                if (existingCPFs.has(cleanCPF)) {
+                    databaseDuplicates.push({
+                        nome: nome || '',
+                        cpf: cleanCPF,
+                        linha: i + 1,
+                        error: 'Este lead já existe no sistema (nome + documento duplicado)'
+                    });
+                    console.log(`Duplicado no banco detectado: ${nome} - ${cleanCPF}`);
+                    continue;
+                }
 
                 const endereco = this.buildAddressFromFields({
                     rua: rua || '',
@@ -169,11 +190,20 @@ export class EnhancedBulkImport {
         if (parseErrors.length > 0) {
             console.warn(`⚠️ ${parseErrors.length} linhas com erro de parsing:`, parseErrors);
         }
+        
+        // Log duplicados no banco se houver
+        if (databaseDuplicates.length > 0) {
+            console.warn(`⚠️ ${databaseDuplicates.length} duplicados no banco encontrados:`, databaseDuplicates);
+        }
+        
+        // Adicionar duplicados do banco aos erros de parsing
+        parseErrors.push(...databaseDuplicates);
 
         return {
             leads,
             duplicatesRemoved,
-            parseErrors
+            parseErrors,
+            databaseDuplicates
         };
     }
 

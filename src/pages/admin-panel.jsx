@@ -333,27 +333,30 @@ class AdminPanel {
     }
 
     // Pré-visualização aprimorada com contagem de linhas
-    previewBulkDataEnhanced() {
-        // Verificar se há dados na textarea antes de processar
-        const bulkDataTextarea = document.getElementById('bulkDataTextarea');
-        if (!bulkDataTextarea) {
-            console.error('❌ Textarea não encontrada');
+    async previewBulkDataEnhanced() {
+        console.log('🔍 Iniciando análise inteligente dos dados...');
+        
+        // Verificar se o textarea existe e tem conteúdo
+        const textarea = document.getElementById('bulkDataTextarea');
+        if (!textarea) {
+            this.showBulkError('Erro: Campo de texto não encontrado.');
             return;
         }
         
-        const rawData = bulkDataTextarea.value.trim();
+        const rawData = textarea.value.trim();
         if (!rawData) {
             this.showBulkError('Por favor, cole os dados da planilha na caixa de texto antes de analisar.');
             return;
         }
         
-        console.log('🔍 Iniciando análise inteligente dos dados...');
-        
         try {
-            const result = this.bulkImport.processData(rawData);
+            console.log('📊 Dados brutos obtidos, iniciando processamento...');
+            
+            // Usar o sistema aprimorado de importação em massa
+            const result = this.enhancedBulkImport.processData(rawData);
             
             if (result.success) {
-                this.showBulkPreview(result);
+                this.displayEnhancedPreview(result);
             } else {
                 this.showBulkError(result.error || 'Erro desconhecido ao processar dados');
             }

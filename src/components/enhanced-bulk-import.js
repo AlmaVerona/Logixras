@@ -95,10 +95,33 @@ export class EnhancedBulkImport {
     parseRawData(rawData) {
         console.log('📊 Iniciando análise inteligente dos dados...');
         
+        // Verificação adicional de dados vazios
+        if (!rawData || !rawData.trim()) {
+            return {
+                leads: [],
+                duplicatesRemoved: [],
+                parseErrors: [{
+                    line: 0,
+                    content: '',
+                    error: 'Nenhum dado fornecido para análise'
+                }],
+                databaseDuplicates: []
+            };
+        }
+        
         const lines = rawData.trim().split('\n').filter(line => line.trim());
         
         if (lines.length === 0) {
-            throw new Error('Nenhum dado foi encontrado para análise');
+            return {
+                leads: [],
+                duplicatesRemoved: [],
+                parseErrors: [{
+                    line: 0,
+                    content: '',
+                    error: 'Nenhum dado válido encontrado para análise'
+                }],
+                databaseDuplicates: []
+            };
         }
         
         const leads = [];

@@ -86,7 +86,7 @@ export class EnhancedBulkImport {
             console.error('❌ Erro ao processar dados:', error);
             return {
                 success: false,
-                error: error.message
+                error: error.message || 'Erro desconhecido durante o processamento dos dados'
             };
         }
     }

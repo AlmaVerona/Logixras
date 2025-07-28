@@ -5,6 +5,7 @@
 import { CPFValidator } from '../utils/cpf-validator.js';
 import { DatabaseService } from '../services/database.js';
 import { EnhancedBulkImport } from '../components/enhanced-bulk-import.js';
+import { EnhancedBulkImport } from '../components/enhanced-bulk-import.js';
 
 class AdminPanel {
     constructor() {
@@ -14,6 +15,7 @@ class AdminPanel {
         this.selectedLeads = new Set();
         this.currentPage = 1;
         this.leadsPerPage = 20;
+        this.bulkImportSystem = new EnhancedBulkImport();
         this.isLoggedIn = false;
         this.systemMode = 'auto';
         this.bulkData = [];

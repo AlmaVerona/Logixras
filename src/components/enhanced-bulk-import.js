@@ -109,11 +109,15 @@ export class EnhancedBulkImport {
 
     // Parse dos dados brutos (reutilizar lógica existente)
     parseRawData(rawData) {
+        console.log('🔍 Iniciando parse dos dados brutos...');
+        
         const lines = rawData.trim().split('\n').filter(line => line.trim());
         
         if (lines.length === 0) {
             throw new Error('Nenhuma linha válida encontrada nos dados colados.');
         }
+        
+        console.log(`📊 Total de linhas para processar: ${lines.length}`);
         
         const leads = [];
         const duplicatesSet = new Set();
@@ -125,26 +129,42 @@ export class EnhancedBulkImport {
 
             const fields = line.split(/\t+|\s{2,}/).map(field => field.trim());
             
+            console.log(`📝 Linha ${i + 1}: ${fields.length} campos encontrados`);
+            
             // Validação rigorosa do número de colunas
             if (fields.length < 4) {
-                throw new Error(`Linha ${i + 1} inválida: número de colunas insuficiente. Esperado pelo menos 4 campos (Nome, Email, Telefone, CPF), encontrado ${fields.length}.`);
+                throw new Error(`Linha ${i + 1} inválida: número de colunas insuficiente. Esperado pelo menos 4 campos (Nome, Email, Telefone, CPF), encontrado ${fields.length}.\n\nDados da linha: "${line}"\n\nVerifique se os dados estão separados por TAB ou múltiplos espaços.`);
             }
             
-            // Validação adicional para campos obrigatórios
+            // Extrair campos na ordem correta: Nome, Email, Telefone, CPF, Produto, Valor, etc.
             const [nome, email, telefone, cpf] = fields;
             
+            console.log(`🔍 Linha ${i + 1} - Nome: "${nome}", Email: "${email}", Telefone: "${telefone}", CPF: "${cpf}"`);
+            
+            // Validação de campo Nome
             if (!nome || nome.trim() === '') {
                 throw new Error(`Linha ${i + 1} inválida: campo Nome é obrigatório.`);
             }
             
+            // Validação de campo CPF
             if (!cpf || cpf.trim() === '') {
                 throw new Error(`Linha ${i + 1} inválida: campo CPF é obrigatório.`);
             }
 
             const cleanCPF = (cpf || '').replace(/[^\d]/g, '');
             
+            // Verificar se o CPF parece ser um email (indicando ordem incorreta das colunas)
+            if (cpf && cpf.includes('@')) {
+                throw new Error(`Linha ${i + 1} inválida: CPF contém um email ("${cpf}"). Verifique se as colunas estão na ordem correta:\n\n1. Nome completo\n2. Email\n3. Telefone\n4. CPF\n5. Produto\n6. Valor\n7. Endereço...\n\nParece que os dados estão em ordem diferente da esperada.`);
+            }
+            
+            // Verificar se o CPF parece ser um nome (indicando ordem incorreta)
+            if (cpf && cpf.split(' ').length > 1 && !/^\d/.test(cpf)) {
+                throw new Error(`Linha ${i + 1} inválida: CPF parece ser um nome ("${cpf}"). Verifique se as colunas estão na ordem correta:\n\n1. Nome completo\n2. Email\n3. Telefone\n4. CPF\n5. Produto\n6. Valor\n7. Endereço...\n\nParece que os dados estão em ordem diferente da esperada.`);
+            }
+            
             if (cleanCPF.length !== 11) {
-                throw new Error(`Linha ${i + 1} inválida: CPF deve ter 11 dígitos. CPF fornecido: "${cpf}".`);
+                throw new Error(`Linha ${i + 1} inválida: CPF deve ter 11 dígitos. CPF fornecido: "${cpf}" (${cleanCPF.length} dígitos após limpeza).\n\nVerifique se:\n- O CPF está na 4ª coluna\n- As colunas estão na ordem: Nome, Email, Telefone, CPF, Produto, Valor...`);
             }
 
             if (duplicatesSet.has(cleanCPF)) {
@@ -168,7 +188,7 @@ export class EnhancedBulkImport {
             // Validar valor numérico
             const valorNumerico = parseFloat(valor);
             if (isNaN(valorNumerico) || valorNumerico <= 0) {
-                throw new Error(`Linha ${i + 1} inválida: valor deve ser um número positivo. Valor fornecido: "${valor}".`);
+                throw new Error(`Linha ${i + 1} inválida: valor deve ser um número positivo. Valor fornecido: "${valor}".\n\nVerifique se:\n- O valor está na 6ª coluna\n- É um número válido (ex: 67.90)\n- As colunas estão na ordem correta`);
             }
 
             const endereco = this.buildAddressFromFields({

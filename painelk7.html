@@ -717,13 +717,24 @@
                         <p style="margin-bottom: 10px;"><strong>Cole os dados da planilha diretamente na caixa de texto abaixo.</strong></p>
                         <p style="margin-bottom: 10px;">Formato esperado (separado por TAB ou múltiplos espaços):</p>
                         <div style="background: #fff; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; overflow-x: auto; border: 1px solid #ddd;">
-                            Nome completo&nbsp;&nbsp;&nbsp;&nbsp;Email&nbsp;&nbsp;&nbsp;&nbsp;Telefone&nbsp;&nbsp;&nbsp;&nbsp;CPF&nbsp;&nbsp;&nbsp;&nbsp;Produto&nbsp;&nbsp;&nbsp;&nbsp;Valor&nbsp;&nbsp;&nbsp;&nbsp;Rua&nbsp;&nbsp;&nbsp;&nbsp;Número&nbsp;&nbsp;&nbsp;&nbsp;Complemento&nbsp;&nbsp;&nbsp;&nbsp;Bairro&nbsp;&nbsp;&nbsp;&nbsp;CEP&nbsp;&nbsp;&nbsp;&nbsp;Cidade&nbsp;&nbsp;&nbsp;&nbsp;Estado&nbsp;&nbsp;&nbsp;&nbsp;País
+                            <strong style="color: #e74c3c;">ORDEM OBRIGATÓRIA DAS COLUNAS:</strong><br>
+                            1. Nome completo&nbsp;&nbsp;&nbsp;&nbsp;2. Email&nbsp;&nbsp;&nbsp;&nbsp;3. Telefone&nbsp;&nbsp;&nbsp;&nbsp;4. CPF&nbsp;&nbsp;&nbsp;&nbsp;5. Produto&nbsp;&nbsp;&nbsp;&nbsp;6. Valor&nbsp;&nbsp;&nbsp;&nbsp;7. Rua&nbsp;&nbsp;&nbsp;&nbsp;8. Número&nbsp;&nbsp;&nbsp;&nbsp;9. Complemento&nbsp;&nbsp;&nbsp;&nbsp;10. Bairro&nbsp;&nbsp;&nbsp;&nbsp;11. CEP&nbsp;&nbsp;&nbsp;&nbsp;12. Cidade&nbsp;&nbsp;&nbsp;&nbsp;13. Estado&nbsp;&nbsp;&nbsp;&nbsp;14. País
                         </div>
-                        <p style="margin-top: 10px; color: #666; font-size: 14px;">
-                            <strong>Campos obrigatórios:</strong> Nome, CPF (11 dígitos), Valor (número positivo)
-                            <br><strong>Campos opcionais:</strong> Email, Telefone, Produto, Endereço
-                            <br><strong>Importante:</strong> CPF deve ter exatamente 11 dígitos e Valor deve ser um número válido
+                        <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px;">
+                            <p style="margin: 0 0 10px 0; color: #856404; font-weight: 600;">
+                                ⚠️ <strong>ATENÇÃO: A ORDEM DAS COLUNAS É CRÍTICA!</strong>
+                            </p>
+                            <p style="margin: 0 0 10px 0; color: #856404; font-size: 14px;">
+                                <strong>Campos obrigatórios:</strong> Nome (1ª coluna), CPF (4ª coluna - 11 dígitos), Valor (6ª coluna - número positivo)
+                            </p>
+                            <p style="margin: 0 0 10px 0; color: #856404; font-size: 14px;">
+                                <strong>Validações automáticas:</strong> O sistema detecta se CPF contém email ou nome (indicando ordem incorreta)
+                            </p>
+                            <p style="margin: 0; color: #856404; font-size: 14px;">
+                                <strong>Exemplo correto:</strong> João Silva Santos → joao@email.com → 11999999999 → 12345678901 → Kit Produto → 67.90 → ...
+                            </p>
                         </p>
+                        </div>
                     </div>
                     
                     <form id="bulkAddForm">

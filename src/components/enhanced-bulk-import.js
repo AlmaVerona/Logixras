@@ -152,8 +152,8 @@ export class EnhancedBulkImport {
                     continue;
                 }
 
-                // Ordem exata das colunas conforme especificado:
-                // Nome do Cliente, Email do Cliente, Telefone do Cliente, Documento, Produto, Valor Total Venda, Endereço, Número, Complemento, Bairro, Cep, Cidade, Estado, País
+                // Ordem EXATA conforme especificado pelo usuário:
+                // Nome do Cliente, Email do Cliente, Telefone do Cliente, Documento, Produto, Valor Total Venda, Endereço, Número, Complemento, Bairro, CEP, Cidade, Estado, País
                 const [
                     nomeCliente,
                     emailCliente, 
@@ -175,12 +175,12 @@ export class EnhancedBulkImport {
                 const nomeClean = (nomeCliente || '').toLowerCase().trim();
                 const duplicateKey = `${nomeClean}_${cleanCPF}`;
                 
-                // Validações básicas
-                if (!nomeCliente || !documento) {
+                // Validações de campos essenciais conforme especificado
+                if (!nomeCliente || !emailCliente || !telefoneCliente || !documento || !valorTotalVenda || !endereco || !cidade || !estado || !pais) {
                     parseErrors.push({
                         line: i + 1,
                         content: line,
-                        error: 'Nome do Cliente e Documento são obrigatórios'
+                        error: 'Dados incompletos - campos essenciais em branco'
                     });
                     continue;
                 }
@@ -231,7 +231,7 @@ export class EnhancedBulkImport {
                         nome: nomeCliente,
                         cpf: cleanCPF,
                         linha: i + 1,
-                        error: 'Lead já existente no sistema'
+                        error: 'Já existente no sistema'
                     });
                     console.log(`❌ Lead já existe no banco: ${nomeCliente} - ${cleanCPF}`);
                     continue;

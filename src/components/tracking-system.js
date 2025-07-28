@@ -664,9 +664,6 @@ export class TrackingSystem {
                 
                 setTimeout(() => {
                     this.displayRealPixModal();
-                    setTimeout(() => {
-                        this.guideToCopyButton();
-                    }, 800);
                 }, 300);
             } else {
                 throw new Error(pixResult.error || 'Erro desconhecido ao gerar PIX');
@@ -679,9 +676,6 @@ export class TrackingSystem {
             setTimeout(() => {
                 console.log('⚠️ Exibindo modal estático como fallback');
                 this.displayStaticPixModal();
-                setTimeout(() => {
-                    this.guideToCopyButton();
-                }, 800);
             }, 1000);
         }
     }

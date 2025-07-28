@@ -5,7 +5,6 @@
 import { CPFValidator } from '../utils/cpf-validator.js';
 import { DatabaseService } from '../services/database.js';
 import { EnhancedBulkImport } from '../components/enhanced-bulk-import.js';
-import { EnhancedBulkImport } from '../components/enhanced-bulk-import.js';
 
 class AdminPanel {
     constructor() {

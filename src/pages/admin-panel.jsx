@@ -336,15 +336,17 @@ class AdminPanel {
     async previewBulkDataEnhanced() {
         console.log('🔍 Iniciando pré-visualização dos dados...');
         
+        // Verificar se o elemento textarea existe
         const bulkDataTextareaElement = document.getElementById('bulkDataTextarea');
         if (!bulkDataTextareaElement) {
-            alert('Campo de texto não encontrado.');
+            alert('Erro: Campo de texto não encontrado. Recarregue a página.');
             return;
         }
 
+        // Verificar se há dados para analisar
         const rawData = bulkDataTextareaElement.value.trim();
         if (!rawData) {
-            alert('Por favor, cole os dados da planilha na caixa de texto antes de analisar.');
+            alert('Por favor, cole os dados da planilha na caixa de texto antes de fazer a pré-visualização.');
             return;
         }
 

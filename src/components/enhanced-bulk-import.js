@@ -97,62 +97,83 @@ export class EnhancedBulkImport {
         const leads = [];
         const duplicatesSet = new Set();
         const duplicatesRemoved = [];
+        const parseErrors = [];
 
         for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
+            try {
+                const line = lines[i].trim();
+                if (!line) continue;
 
-            const fields = line.split(/\t+|\s{2,}/).map(field => field.trim());
-            
-            if (fields.length < 4) {
-                console.warn(`Linha ${i + 1} ignorada: poucos campos`);
-                continue;
+                const fields = line.split(/\t+|\s{2,}/).map(field => field.trim());
+                
+                if (fields.length < 4) {
+                    console.warn(`Linha ${i + 1} ignorada: poucos campos (${fields.length} campos encontrados)`);
+                    parseErrors.push({
+                        line: i + 1,
+                        content: line,
+                        error: `Poucos campos: ${fields.length} campos encontrados, mínimo 4 necessários`
+                    });
+                    continue;
+                }
+
+                const [nome, email, telefone, cpf, produto, valor, rua, numero, complemento, bairro, cep, cidade, estado, pais] = fields;
+                const cleanCPF = (cpf || '').replace(/[^\d]/g, '');
+
+                if (duplicatesSet.has(cleanCPF)) {
+                    duplicatesRemoved.push({ nome, cpf: cleanCPF });
+                    continue;
+                }
+                duplicatesSet.add(cleanCPF);
+
+                const endereco = this.buildAddressFromFields({
+                    rua: rua || '',
+                    numero: numero || '',
+                    complemento: complemento || '',
+                    bairro: bairro || '',
+                    cep: cep || '',
+                    cidade: cidade || '',
+                    estado: estado || '',
+                    pais: pais || 'BR'
+                });
+
+                leads.push({
+                    nome_completo: nome || '',
+                    email: email || '',
+                    telefone: telefone || '',
+                    cpf: cleanCPF,
+                    produto: produto || 'Kit 12 caixas organizadoras + brinde',
+                    valor_total: parseFloat(valor) || 67.9,
+                    endereco: endereco,
+                    meio_pagamento: 'PIX',
+                    origem: 'direto',
+                    etapa_atual: 1,
+                    status_pagamento: 'pendente',
+                    order_bumps: [],
+                    produtos: [{
+                        nome: produto || 'Kit 12 caixas organizadoras + brinde',
+                        preco: parseFloat(valor) || 67.9
+                    }],
+                    lineNumber: i + 1
+                });
+            } catch (error) {
+                console.error(`❌ Erro ao processar linha ${i + 1}:`, error);
+                parseErrors.push({
+                    line: i + 1,
+                    content: lines[i],
+                    error: error.message || 'Erro desconhecido ao processar linha'
+                });
             }
+        }
 
-            const [nome, email, telefone, cpf, produto, valor, rua, numero, complemento, bairro, cep, cidade, estado, pais] = fields;
-            const cleanCPF = (cpf || '').replace(/[^\d]/g, '');
-
-            if (duplicatesSet.has(cleanCPF)) {
-                duplicatesRemoved.push({ nome, cpf: cleanCPF });
-                continue;
-            }
-            duplicatesSet.add(cleanCPF);
-
-            const endereco = this.buildAddressFromFields({
-                rua: rua || '',
-                numero: numero || '',
-                complemento: complemento || '',
-                bairro: bairro || '',
-                cep: cep || '',
-                cidade: cidade || '',
-                estado: estado || '',
-                pais: pais || 'BR'
-            });
-
-            leads.push({
-                nome_completo: nome || '',
-                email: email || '',
-                telefone: telefone || '',
-                cpf: cleanCPF,
-                produto: produto || 'Kit 12 caixas organizadoras + brinde',
-                valor_total: parseFloat(valor) || 67.9,
-                endereco: endereco,
-                meio_pagamento: 'PIX',
-                origem: 'direto',
-                etapa_atual: 1,
-                status_pagamento: 'pendente',
-                order_bumps: [],
-                produtos: [{
-                    nome: produto || 'Kit 12 caixas organizadoras + brinde',
-                    preco: parseFloat(valor) || 67.9
-                }],
-                lineNumber: i + 1
-            });
+        // Log erros de parsing se houver
+        if (parseErrors.length > 0) {
+            console.warn(`⚠️ ${parseErrors.length} linhas com erro de parsing:`, parseErrors);
         }
 
         return {
             leads,
-            duplicatesRemoved
+            duplicatesRemoved,
+            parseErrors
         };
     }
 

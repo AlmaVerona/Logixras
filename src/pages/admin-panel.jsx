@@ -332,7 +332,11 @@ class AdminPanel {
             // Contar linhas
             const lines = textarea.value.trim().split('\n').filter(line => line.trim());
             console.log(`📈 Total de linhas detectadas: ${lines.length}`);
+            const rawData = document.getElementById('bulkDataTextarea')?.value ?? '';
             
+            if (!rawData.trim()) {
+                throw new Error('Nenhum dado foi inserido na área de texto');
+            }
             // Processar dados
             const result = this.enhancedBulkImport.processData(textarea.value);
             

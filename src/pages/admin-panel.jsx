@@ -345,65 +345,58 @@ class AdminPanel {
             const textarea = document.getElementById('bulkDataTextarea');
             const rawText = textarea?.value ?? '';
             
-            if (typeof rawText !== 'string' || !rawText.trim()) {
-                throw new Error("Nenhum dado foi colado para análise.");
-            }
-
-            const EXPECTED_COLS = 14;
-            const lines = rawText.split(/\r?\n/).filter(line => line.trim());
-            const parsedList = [];
-            const failedList = [];
-
-            lines.forEach((line, index) => {
-                const cols = line.split('\t');
-                
-                if (cols.length < EXPECTED_COLS) {
-                    failedList.push({
-                        line,
-                        reason: `Apenas ${cols.length} colunas (mínimo: ${EXPECTED_COLS})`,
-                        index: index + 1,
-                    });
-                    return;
-                }
-
-                // Mapear campos da lista (ajuste conforme necessário)
-                const [nome, cpf, telefone, email, endereco, complemento, bairro, cidade, uf, cep, produto, operador, valor, obs] = cols;
-
-                parsedList.push({
-                    nome: nome?.trim(),
-                    cpf: cpf?.trim(),
-                    telefone: telefone?.trim(),
-                    email: email?.trim(),
-                    endereco: endereco?.trim(),
-                    complemento: complemento?.trim(),
-                    bairro: bairro?.trim(),
-                    cidade: cidade?.trim(),
-                    uf: uf?.trim(),
-                    cep: cep?.trim(),
-                    produto: produto?.trim(),
-                    operador: operador?.trim(),
-                    valor: valor?.trim(),
-                    observacao: obs?.trim(),
-                    linhaOriginal: line,
-                    linha: index + 1,
-                });
-            });
-
-            const result = {
-                validos: parsedList,
-                comErro: failedList,
-            };
-
-            console.log('📊 Análise concluída:', {
-                totalLinhas: lines.length,
-                validos: result.validos.length,
-                comErro: result.comErro.length
-            });
-
+            const result = this.previewBulkDataEnhanced(rawText);
             this.showBulkPreviewLight(result);
         } catch (err) {
             console.error("Erro ao analisar dados colados:", err);
             alert(err.message || "Erro inesperado ao analisar os dados.");
+        }
+    }
+
+    // Função para pré-visualizar dados colados com validação leve
+    previewBulkDataEnhanced(rawText) {
+        try {
+            const expectedHeaders = [
+                "Nome do Cliente",
+                "Email do Cliente", 
+                "Telefone do Cliente",
+                "Documento",
+                "Produto",
+                "Valor Total Venda",
+                "Endereço",
+                "Número",
+                "Complemento",
+                "Bairro",
+                "Cep",
+                "Cidade",
+                "Estado",
+                "País"
+            ];
+
+            const lines = rawText.trim().split("\n");
+            const data = lines.map((line, index) => {
+                const cols = line.split("\t");
+                if (cols.length !== expectedHeaders.length) {
+                    throw new Error(`Erro na linha ${index + 1}: Número incorreto de colunas (${cols.length}/${expectedHeaders.length})`);
+                }
+
+                const row = {};
+                expectedHeaders.forEach((header, i) => {
+                    row[header] = cols[i].trim();
+                });
+
+                return row;
+            });
+
+            return {
+                validos: data,
+                comErro: [],
+                headers: expectedHeaders
+            };
+
+        } catch (err) {
+            console.error("Erro ao analisar dados colados:", err);
+            throw err;
         }
     }
 
@@ -1210,6 +1203,74 @@ class AdminPanel {
         if (textarea) {
             textarea.focus();
         }
+    }
+
+    createPreviewTable(result) {
+        let tableHtml = `
+            <div style="padding: 20px; background: #f8f9fa;">
+                <h4 style="color: #345C7A; margin-bottom: 15px;">
+                    📊 Análise dos Dados Colados
+                </h4>
+                <div style="margin-bottom: 15px;">
+                    <strong>✅ Registros válidos:</strong> ${result.validos.length}<br>
+                    <strong>❌ Registros com erro:</strong> ${result.comErro.length}
+                </div>
+        `;
+
+        if (result.comErro.length > 0) {
+            tableHtml += `
+                <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
+                    <strong>⚠️ Linhas com problemas:</strong><br>
+                    ${result.comErro.slice(0, 5).map(error => 
+                        `Linha ${error.index}: ${error.reason}`
+                    ).join('<br>')}
+                    ${result.comErro.length > 5 ? `<br>... e mais ${result.comErro.length - 5} erros` : ''}
+                </div>
+            `;
+        }
+
+        if (result.validos.length > 0) {
+            tableHtml += `
+                <div style="background: #d4edda; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
+                    <strong>📋 Primeiros 5 registros válidos:</strong>
+                </div>
+                <div style="overflow-x: auto; max-height: 300px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                        <thead>
+                            <tr style="background: #345C7A; color: white;">
+                                <th style="padding: 8px; border: 1px solid #ddd;">Nome do Cliente</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Email</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Telefone</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Documento</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Produto</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Valor Total</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Endereço</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Cidade</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${result.validos.slice(0, 5).map(record => `
+                                <tr>
+                                    <td style="padding: 6px; border: 1px solid #ddd;">${record['Nome do Cliente'] || '-'}</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd;">${record['Email do Cliente'] || '-'}</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd;">${record['Telefone do Cliente'] || '-'}</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd;">${record['Documento'] || '-'}</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd;">${record['Produto'] || '-'}</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd;">${record['Valor Total Venda'] || '-'}</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd;">${record['Endereço'] || '-'}</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd;">${record['Cidade'] || '-'}</td>
+                                    <td style="padding: 6px; border: 1px solid #ddd;">${record['Estado'] || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        tableHtml += `</div>`;
+        return tableHtml;
     }
 
     // Verificar importação pendente ao inicializar

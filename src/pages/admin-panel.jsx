@@ -1007,7 +1007,12 @@ class AdminPanel {
                     nome: leadData.nome_completo,
                     cpf: leadData.cpf,
                     error: error.message,
-                    type: 'exception'
+                    try {
+                        this.previewBulkDataEnhanced();
+                    } catch (error) {
+                        console.error('Erro ao analisar dados colados:', error);
+                        this.showBulkError(error.message || 'Erro desconhecido ao analisar dados');
+                    }
                 });
             }
         });

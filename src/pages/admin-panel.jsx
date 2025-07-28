@@ -342,8 +342,8 @@ class AdminPanel {
 
         try {
             console.log('📊 Iniciando pré-visualização aprimorada...');
-            const textarea = document.getElementById('bulkDataTextarea');
-            const rawText = textarea?.value ?? '';
+            // Processar dados usando o sistema aprimorado
+            const result = this.bulkImportSystem.processData(textarea.value);
             
             const result = this.previewBulkDataEnhanced(rawText);
             this.showBulkPreviewLight(result);
@@ -526,14 +526,19 @@ class AdminPanel {
         
         previewContainer.innerHTML = tableHtml;
         
-        // Atualizar resumo
+        // Atualizar resumo e botão
         if (previewSummary) {
-            previewSummary.textContent = `${result.validos.length} registros válidos, ${result.comErro.length} com erro`;
+            previewSummary.textContent = `${leads.length} leads válidos, ${errors.length} com erro`;
         }
         
-        // Mostrar botão de confirmação se há registros válidos
+        // Mostrar botão de confirmação apenas se houver leads válidos
         if (confirmButton) {
-            if (result.validos.length > 0) {
+            if (leads.length > 0) {
+                confirmButton.style.display = 'inline-flex';
+                confirmButton.innerHTML = `<i class="fas fa-rocket"></i> Postar ${leads.length} Leads`;
+            } else {
+                confirmButton.style.display = 'none';
+            }
                 confirmButton.style.display = 'inline-block';
                 confirmButton.onclick = () => this.startBulkImportLight(result.validos);
             } else {
@@ -577,9 +582,9 @@ class AdminPanel {
 
     // Construir endereço completo
     buildFullAddress(record) {
-        const parts = [
+            console.log('✅ Análise concluída:', result);
             record.endereco,
-            record.complemento,
+            // Exibir preview com seções separadas
             record.bairro,
             `${record.cidade}/${record.uf}`,
             `CEP: ${record.cep}`
@@ -588,7 +593,7 @@ class AdminPanel {
         return parts.join(' - ');
     }
 
-    displayEnhancedPreview(result) {
+    displayEnhancedPreview(data) {
         const previewSection = document.getElementById('bulkPreviewSection');
         const previewContainer = document.getElementById('bulkPreviewContainer');
         const confirmButton = document.getElementById('confirmBulkImportButton');
@@ -596,21 +601,45 @@ class AdminPanel {
         
         if (!previewSection || !previewContainer) return;
         
+        // Obter dados processados
+        const leads = this.bulkImportSystem.bulkData.leads || [];
+        const errors = this.bulkImportSystem.bulkData.parseErrors || [];
+        
+        console.log('📊 Exibindo preview:', {
+            leadsValidos: leads.length,
+            erros: errors.length
+        });
+        
         previewSection.style.display = 'block';
         
-        // Determinar configuração de lotes
-        const batchSize = this.enhancedBulkImport.determineBatchSize(result.totalRecords);
-        const totalBatches = Math.ceil(result.totalRecords / batchSize);
-        
-        let html = `
-            <div style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-                <h4 style="color: #1976d2; margin-bottom: 10px;">
-                    <i class="fas fa-info-circle"></i> Configuração de Importação Inteligente
-                </h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                    <div>
-                        <strong>Total de Registros:</strong> ${result.totalRecords}
-                    </div>
+        // Criar preview com duas seções
+        previewContainer.innerHTML = `
+            <div style="padding: 25px;">
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <h3 style="color: #345C7A; margin-bottom: 10px;">
+                        📊 Análise Inteligente Concluída
+                    </h3>
+                    <p style="color: #666; margin: 0;">
+                        Dados processados e organizados para importação
+                    </p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 25px;">
+                    <!-- Seção de Leads Válidos -->
+                    <div style="background: #d4edda; border: 2px solid #28a745; border-radius: 12px; overflow: hidden;">
+                        <div style="background: #28a745; color: white; padding: 15px; text-align: center;">
+                            <h4 style="margin: 0; font-size: 1.1rem;">
+                                ✅ Leads Prontos para Postagem
+                            </h4>
+                        </div>
+                        <div style="padding: 20px; text-align: center;">
+                            <div style="font-size: 2.5rem; font-weight: bold; color: #155724; margin-bottom: 10px;">
+                                ${leads.length}
+                            </div>
+                            <p style="color: #155724; margin: 0; font-weight: 500;">
+                                Leads válidos e prontos
+                            </p>
+                        </div>
                     <div>
                         <strong>Tamanho do Lote:</strong> ${batchSize} registros
                     </div>
@@ -1154,20 +1183,105 @@ class AdminPanel {
                 <h4 style="color: #383d41; margin-bottom: 10px;">📊 Resumo da Importação</h4>
                 <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px;">
                     <div>
-                        <strong style="color: #28a745;">${results.success.length}</strong>
-                        <span style="color: #6c757d;"> Sucessos</span>
+                    
+                    <!-- Seção de Erros -->
+                    <div style="background: #f8d7da; border: 2px solid #dc3545; border-radius: 12px; overflow: hidden;">
+                        <div style="background: #dc3545; color: white; padding: 15px; text-align: center;">
+                            <h4 style="margin: 0; font-size: 1.1rem;">
+                                ❌ Leads com Erro
+                            </h4>
+                        </div>
+                        <div style="padding: 20px; text-align: center;">
+                            <div style="font-size: 2.5rem; font-weight: bold; color: #721c24; margin-bottom: 10px;">
+                                ${errors.length}
+                            </div>
+                            <p style="color: #721c24; margin: 0; font-weight: 500;">
+                                Duplicados ou inválidos
+                            </p>
+                        </div>
                     </div>
                     <div>
-                        <strong style="color: #dc3545;">${results.errors.length}</strong>
-                        <span style="color: #6c757d;"> Erros</span>
+                
+                ${leads.length > 0 ? `
+                <!-- Preview dos Leads Válidos -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #28a745; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-check-circle"></i>
+                        Preview dos Leads Válidos (primeiros 5)
+                    </h4>
+                    <div style="background: white; border: 1px solid #28a745; border-radius: 8px; overflow: hidden;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="padding: 10px; border-bottom: 1px solid #dee2e6; text-align: left;">Nome</th>
+                                    <th style="padding: 10px; border-bottom: 1px solid #dee2e6; text-align: left;">Email</th>
+                                    <th style="padding: 10px; border-bottom: 1px solid #dee2e6; text-align: left;">CPF</th>
+                                    <th style="padding: 10px; border-bottom: 1px solid #dee2e6; text-align: left;">Produto</th>
+                                    <th style="padding: 10px; border-bottom: 1px solid #dee2e6; text-align: left;">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${leads.slice(0, 5).map(lead => `
+                                    <tr>
+                                        <td style="padding: 8px; border-bottom: 1px solid #f1f3f4;">${lead.nome_completo}</td>
+                                        <td style="padding: 8px; border-bottom: 1px solid #f1f3f4;">${lead.email}</td>
+                                        <td style="padding: 8px; border-bottom: 1px solid #f1f3f4;">${this.formatCPF(lead.cpf)}</td>
+                                        <td style="padding: 8px; border-bottom: 1px solid #f1f3f4;">${lead.produto}</td>
+                                        <td style="padding: 8px; border-bottom: 1px solid #f1f3f4;">R$ ${lead.valor_total.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                                ${leads.length > 5 ? `
+                                    <tr>
+                                        <td colspan="5" style="padding: 10px; text-align: center; color: #666; font-style: italic;">
+                                            ... e mais ${leads.length - 5} leads
+                                        </td>
+                                    </tr>
+                                ` : ''}
+                            </tbody>
+                        </table>
                     </div>
-                    <div>
-                        <strong style="color: #007bff;">${results.total}</strong>
-                        <span style="color: #6c757d;"> Total Processados</span>
+                </div>
+                ` : ''}
+                
+                ${errors.length > 0 ? `
+                <!-- Preview dos Erros -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #dc3545; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Leads com Erro
+                    </h4>
+                    <div style="background: white; border: 1px solid #dc3545; border-radius: 8px; overflow: hidden;">
+                        <div style="max-height: 200px; overflow-y: auto;">
+                            ${errors.map(error => `
+                                <div style="padding: 12px; border-bottom: 1px solid #f1f3f4; background: #fff5f5;">
+                                    <div style="font-weight: 600; color: #721c24; margin-bottom: 5px;">
+                                        Linha ${error.line}: ${error.nome || 'Nome não informado'}
+                                    </div>
+                                    <div style="font-size: 0.9rem; color: #721c24;">
+                                        ${error.error}
+                                    </div>
+                                    ${error.cpf ? `
+                                        <div style="font-size: 0.8rem; color: #999; margin-top: 3px;">
+                                            CPF: ${this.formatCPF(error.cpf)}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
                     </div>
-                    <div>
-                        <strong style="color: #ffc107;">${this.bulkData.duplicatesRemoved.length}</strong>
-                        <span style="color: #6c757d;"> Duplicatas Removidas</span>
+                </div>
+                ` : ''}
+                
+                <div style="background: #e7f3ff; border: 1px solid #007bff; border-radius: 8px; padding: 15px;">
+                    <h5 style="color: #004085; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-info-circle"></i>
+                        Resumo da Análise
+                    </h5>
+                    <div style="color: #004085; font-size: 0.9rem; line-height: 1.5;">
+                        • <strong>${leads.length}</strong> leads válidos prontos para postagem<br>
+                        • <strong>${errors.filter(e => e.error === 'Lead já existente no sistema').length}</strong> leads já existem no sistema<br>
+                        • <strong>${errors.filter(e => e.error !== 'Lead já existente no sistema').length}</strong> leads com erros de validação<br>
+                        • Duplicados na lista foram removidos automaticamente (silencioso)
                     </div>
                 </div>
             </div>

@@ -93,35 +93,181 @@ export class EnhancedBulkImport {
 
     // Parse dos dados brutos (reutilizar lógica existente)
     parseRawData(rawData) {
+        console.log('📊 Iniciando análise inteligente dos dados...');
+        
         const lines = rawData.trim().split('\n').filter(line => line.trim());
+        
+        if (lines.length === 0) {
+            throw new Error('Nenhum dado foi encontrado para análise');
+        }
+        
         const leads = [];
-        const duplicatesInList = new Set(); // Duplicados na mesma lista
-        const duplicatesRemoved = []; // Duplicados na mesma lista (para log)
-        const databaseDuplicates = []; // Duplicados no banco
+        const duplicatesInList = new Set(); // Duplicados na mesma lista (silenciosos)
+        const duplicatesRemoved = []; // Para log interno
+        const databaseDuplicates = []; // Duplicados no banco (mostrar como erro)
         const parseErrors = [];
         
-        // Obter leads existentes no banco para verificar duplicatas
+        console.log(`📋 Total de linhas para processar: ${lines.length}`);
+        
+        // Obter leads existentes no banco
         const existingLeads = JSON.parse(localStorage.getItem('leads') || '[]');
-        const existingCPFs = new Set(existingLeads.map(lead => lead.cpf ? lead.cpf.replace(/[^\d]/g, '') : ''));
+        const existingKeys = new Set(existingLeads.map(lead => {
+            const cleanCPF = lead.cpf ? lead.cpf.replace(/[^\d]/g, '') : '';
+            const cleanName = (lead.nome_completo || '').toLowerCase().trim();
+            return `${cleanName}_${cleanCPF}`;
+        }));
+        
+        console.log(`🗄️ Leads existentes no banco: ${existingLeads.length}`);
 
         for (let i = 0; i < lines.length; i++) {
             try {
                 const line = lines[i].trim();
                 if (!line) continue;
 
+                // Dividir por TAB ou múltiplos espaços
                 const fields = line.split(/\t+|\s{2,}/).map(field => field.trim());
                 
-                if (fields.length < 4) {
-                    console.warn(`Linha ${i + 1} ignorada: poucos campos (${fields.length} campos encontrados)`);
+                if (fields.length < 14) {
+                    console.warn(`Linha ${i + 1} ignorada: poucos campos (${fields.length}/14 campos encontrados)`);
                     parseErrors.push({
                         line: i + 1,
                         content: line,
-                        error: `Poucos campos: ${fields.length} campos encontrados, mínimo 4 necessários`
+                        error: `Poucos campos: ${fields.length} campos encontrados, mínimo 14 necessários`
                     });
                     continue;
                 }
 
-                const [nome, email, telefone, cpf, produto, valor, rua, numero, complemento, bairro, cep, cidade, estado, pais] = fields;
+                // Ordem exata das colunas conforme especificado:
+                // Nome do Cliente, Email do Cliente, Telefone do Cliente, Documento, Produto, Valor Total Venda, Endereço, Número, Complemento, Bairro, Cep, Cidade, Estado, País
+                const [
+                    nomeCliente,
+                    emailCliente, 
+                    telefoneCliente,
+                    documento,
+                    produto,
+                    valorTotalVenda,
+                    endereco,
+                    numero,
+                    complemento,
+                    bairro,
+                    cep,
+                    cidade,
+                    estado,
+                    pais
+                ] = fields;
+                
+                const cleanCPF = (documento || '').replace(/[^\d]/g, '');
+                const nomeClean = (nomeCliente || '').toLowerCase().trim();
+                const duplicateKey = `${nomeClean}_${cleanCPF}`;
+                
+                // Validações básicas
+                if (!nomeCliente || !documento) {
+                    parseErrors.push({
+                        line: i + 1,
+                        content: line,
+                        error: 'Nome do Cliente e Documento são obrigatórios'
+                    });
+                    continue;
+                }
+                
+                if (cleanCPF.length !== 11) {
+                    parseErrors.push({
+                        line: i + 1,
+                        content: line,
+                        error: 'Documento deve ter 11 dígitos'
+                    });
+                    continue;
+                }
+
+                // 1. Verificar duplicados na mesma lista (SILENCIOSO)
+                if (duplicatesInList.has(duplicateKey)) {
+                    duplicatesRemoved.push({ 
+                        nome: nomeCliente, 
+                        cpf: cleanCPF,
+                        linha: i + 1
+                    });
+                    console.log(`🔄 Duplicado na lista ignorado silenciosamente: ${nomeCliente} - ${cleanCPF}`);
+                    continue;
+                }
+                duplicatesInList.add(duplicateKey);
+                
+                // 2. Verificar duplicados no banco de dados (MOSTRAR COMO ERRO)
+                if (existingKeys.has(duplicateKey)) {
+                    databaseDuplicates.push({
+                        nome: nomeCliente,
+                        cpf: cleanCPF,
+                        linha: i + 1,
+                        error: 'Lead já existente no sistema'
+                    });
+                    console.log(`❌ Lead já existe no banco: ${nomeCliente} - ${cleanCPF}`);
+                    continue;
+                }
+
+                // Construir endereço completo
+                const enderecoCompleto = this.buildAddressFromFields({
+                    rua: endereco || '',
+                    numero: numero || '',
+                    complemento: complemento || '',
+                    bairro: bairro || '',
+                    cep: cep || '',
+                    cidade: cidade || '',
+                    estado: estado || '',
+                    pais: pais || 'BR'
+                });
+
+                // Processar valor (remover vírgulas e converter)
+                const valorProcessado = parseFloat((valorTotalVenda || '0').replace(',', '.')) || 67.9;
+
+                // Criar lead com dados processados
+                const leadData = {
+                    nome_completo: nomeCliente,
+                    email: emailCliente || '',
+                    telefone: telefoneCliente || '',
+                    cpf: cleanCPF,
+                    produto: produto || 'Kit 12 caixas organizadoras + brinde',
+                    valor_total: valorProcessado,
+                    endereco: enderecoCompleto,
+                    meio_pagamento: 'PIX',
+                    origem: 'direto',
+                    etapa_atual: 1,
+                    status_pagamento: 'pendente',
+                    order_bumps: [],
+                    produtos: [{
+                        nome: produto || 'Kit 12 caixas organizadoras + brinde',
+                        preco: valorProcessado
+                    }],
+                    lineNumber: i + 1
+                };
+
+                leads.push(leadData);
+                
+            } catch (error) {
+                console.error(`❌ Erro ao processar linha ${i + 1}:`, error);
+                parseErrors.push({
+                    line: i + 1,
+                    content: lines[i],
+                    error: error.message || 'Erro desconhecido ao processar linha'
+                });
+            }
+        }
+
+        // Log de resultados
+        console.log(`✅ Análise concluída:`);
+        console.log(`   📊 Leads válidos: ${leads.length}`);
+        console.log(`   🔄 Duplicados na lista (removidos silenciosamente): ${duplicatesRemoved.length}`);
+        console.log(`   ❌ Duplicados no banco: ${databaseDuplicates.length}`);
+        console.log(`   ⚠️ Erros de parsing: ${parseErrors.length}`);
+        
+        // Adicionar duplicados do banco aos erros para exibição
+        const allErrors = [...parseErrors, ...databaseDuplicates];
+
+        return {
+            leads,
+            duplicatesRemoved, // Para log interno
+            parseErrors: allErrors, // Inclui duplicados do banco
+            databaseDuplicates // Para estatísticas
+        };
+    }
                 const cleanCPF = (cpf || '').replace(/[^\d]/g, '');
                 const nomeClean = (nome || '').toLowerCase().trim();
                 const duplicateKey = `${nomeClean}_${cleanCPF}`;

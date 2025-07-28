@@ -745,27 +745,27 @@
                         
                         <div class="bulk-import-controls" style="margin: 20px 0; display: flex; gap: 15px; align-items: center;">
                             <button type="button" class="control-button" id="previewBulkDataButton">
-                                <i class="fas fa-eye"></i> Pré-visualizar Dados
+                                <i class="fas fa-eye"></i> Análise Inteligente
                             </button>
                             <button type="button" class="control-button danger" id="clearBulkDataButton">
                                 <i class="fas fa-trash"></i> Limpar Dados
                             </button>
                             <span style="color: #666; font-size: 14px;">
-                                <i class="fas fa-info-circle"></i> Cole os dados e clique em "Pré-visualizar" para conferir antes de importar
+                                <i class="fas fa-info-circle"></i> Cole os dados e clique em "Análise Inteligente" para configuração automática de lotes
                             </span>
                         </div>
                         
                         <!-- Preview Section -->
                         <div id="bulkPreviewSection" style="display: none; margin-top: 30px;">
                             <h4 style="color: #345C7A; margin-bottom: 15px;">
-                                <i class="fas fa-table"></i> Pré-visualização dos Dados
+                                <i class="fas fa-cogs"></i> Configuração de Importação Inteligente
                             </h4>
                             <div id="bulkPreviewContainer" style="background: #fff; border: 2px solid #345C7A; border-radius: 8px; overflow: hidden;">
                                 <!-- Preview table will be inserted here -->
                             </div>
                             <div style="margin-top: 15px; display: flex; gap: 15px; align-items: center;">
                                 <button type="button" class="control-button success" id="confirmBulkImportButton" style="display: none;">
-                                    <i class="fas fa-check"></i> Confirmar Importação
+                                    <i class="fas fa-rocket"></i> Iniciar Importação Inteligente
                                 </button>
                                 <button type="button" class="control-button" id="editBulkDataButton">
                                     <i class="fas fa-edit"></i> Editar Dados
@@ -777,10 +777,10 @@
                         <!-- Results Section -->
                         <div id="bulkResultsSection" style="display: none; margin-top: 30px;">
                             <h4 style="color: #345C7A; margin-bottom: 15px;">
-                                <i class="fas fa-chart-bar"></i> Resultado da Importação
+                                <i class="fas fa-chart-bar"></i> Progresso da Importação Inteligente
                             </h4>
                             <div id="bulkResultsContainer">
-                                <!-- Results will be inserted here -->
+                                <!-- Progress bar and results will be inserted here -->
                             </div>
                         </div>
                     </form>
@@ -891,7 +891,24 @@
                         border-radius: 8px;
                         margin-bottom: 20px;
                         border-left: 4px solid #345C7A;
+                        position: relative;
                     ">
+                        <div id="importingOverlay" style="
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background: rgba(248, 249, 250, 0.9);
+                            display: none;
+                            align-items: center;
+                            justify-content: center;
+                            border-radius: 8px;
+                            font-weight: 600;
+                            color: #345C7A;
+                        ">
+                            <i class="fas fa-upload"></i> Importação em andamento...
+                        </div>
                         <span id="selectedCount">0 selecionados</span>
                         <p style="margin: 5px 0 0 0; font-size: 0.9rem; color: #666;">
                             Selecione leads na tabela abaixo para habilitar as ações em massa

@@ -4,6 +4,7 @@
 
 import { CPFValidator } from '../utils/cpf-validator.js';
 import { DatabaseService } from '../services/database.js';
+import { EnhancedBulkImport } from '../components/enhanced-bulk-import.js';
 
 class AdminPanel {
     constructor() {
@@ -18,6 +19,7 @@ class AdminPanel {
         this.bulkData = [];
         this.bulkResults = null;
         this.editingLead = null;
+        this.enhancedBulkImport = new EnhancedBulkImport();
         
         console.log('🔧 AdminPanel inicializado - Modo Local');
         this.init();
@@ -80,22 +82,22 @@ class AdminPanel {
         // Bulk Import
         const previewButton = document.getElementById('previewBulkDataButton');
         if (previewButton) {
-            previewButton.addEventListener('click', () => this.previewBulkData());
+            previewButton.addEventListener('click', () => this.previewBulkDataEnhanced());
         }
 
         const clearButton = document.getElementById('clearBulkDataButton');
         if (clearButton) {
-            clearButton.addEventListener('click', () => this.clearBulkData());
+            clearButton.addEventListener('click', () => this.clearBulkDataEnhanced());
         }
 
         const confirmButton = document.getElementById('confirmBulkImportButton');
         if (confirmButton) {
-            confirmButton.addEventListener('click', () => this.confirmBulkImport());
+            confirmButton.addEventListener('click', () => this.confirmBulkImportEnhanced());
         }
 
         const editButton = document.getElementById('editBulkDataButton');
         if (editButton) {
-            editButton.addEventListener('click', () => this.editBulkData());
+            editButton.addEventListener('click', () => this.editBulkDataEnhanced());
         }
 
         // Controls
@@ -314,6 +316,212 @@ class AdminPanel {
         const pais = formData.get('pais') || document.getElementById('addLeadPais')?.value || 'BR';
 
         return `${endereco}, ${numero}${complemento ? ` - ${complemento}` : ''} - ${bairro} - ${cidade}/${estado} - CEP: ${cep} - ${pais}`;
+    }
+
+    // Pré-visualização aprimorada com contagem de linhas
+    previewBulkDataEnhanced() {
+        const textarea = document.getElementById('bulkDataTextarea');
+        if (!textarea || !textarea.value.trim()) {
+            this.showNotification('Por favor, cole os dados na caixa de texto', 'error');
+            return;
+        }
+
+        try {
+            console.log('📊 Iniciando pré-visualização aprimorada...');
+            
+            // Contar linhas
+            const lines = textarea.value.trim().split('\n').filter(line => line.trim());
+            console.log(`📈 Total de linhas detectadas: ${lines.length}`);
+            
+            // Processar dados
+            const result = this.enhancedBulkImport.processData(textarea.value);
+            
+            if (result.success) {
+                this.displayEnhancedPreview(result);
+            } else {
+                throw new Error(result.error);
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro ao processar dados:', error);
+            this.showNotification('Erro ao processar dados: ' + error.message, 'error');
+        }
+    }
+
+    // Exibir pré-visualização aprimorada
+    displayEnhancedPreview(result) {
+        const previewSection = document.getElementById('bulkPreviewSection');
+        const previewContainer = document.getElementById('bulkPreviewContainer');
+        const confirmButton = document.getElementById('confirmBulkImportButton');
+        const previewSummary = document.getElementById('previewSummary');
+        
+        if (!previewSection || !previewContainer) return;
+        
+        previewSection.style.display = 'block';
+        
+        // Determinar configuração de lotes
+        const batchSize = this.enhancedBulkImport.determineBatchSize(result.totalRecords);
+        const totalBatches = Math.ceil(result.totalRecords / batchSize);
+        
+        let html = `
+            <div style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <h4 style="color: #1976d2; margin-bottom: 10px;">
+                    <i class="fas fa-info-circle"></i> Configuração de Importação Inteligente
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div>
+                        <strong>Total de Registros:</strong> ${result.totalRecords}
+                    </div>
+                    <div>
+                        <strong>Tamanho do Lote:</strong> ${batchSize} registros
+                    </div>
+                    <div>
+                        <strong>Total de Lotes:</strong> ${totalBatches}
+                    </div>
+                    <div>
+                        <strong>Duplicatas Removidas:</strong> ${result.duplicatesRemoved}
+                    </div>
+                </div>
+                <div style="margin-top: 10px; padding: 10px; background: rgba(255, 255, 255, 0.7); border-radius: 4px;">
+                    <small style="color: #666;">
+                        <i class="fas fa-lightbulb"></i> 
+                        <strong>Estratégia:</strong> Os dados serão processados em ${totalBatches} lotes de ${batchSize} registros cada, 
+                        com retry automático em caso de falha e progresso em tempo real.
+                    </small>
+                </div>
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Nome</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Email</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Telefone</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">CPF</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Produto</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        // Mostrar apenas os primeiros 10 registros na pré-visualização
+        const previewData = this.enhancedBulkImport.bulkData.leads.slice(0, 10);
+        
+        previewData.forEach((lead, index) => {
+            const rowStyle = index % 2 === 0 ? 'background: #f9f9f9;' : '';
+            html += `
+                <tr style="${rowStyle}">
+                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.nome_completo}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.email}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.telefone}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${this.formatCPF(lead.cpf)}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.produto}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">R$ ${lead.valor_total.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        
+        if (result.totalRecords > 10) {
+            html += `
+                <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; text-align: center;">
+                    <small style="color: #856404;">
+                        <i class="fas fa-info-circle"></i> 
+                        Mostrando apenas os primeiros 10 registros. Total: <strong>${result.totalRecords} registros</strong>
+                    </small>
+                </div>
+            `;
+        }
+        
+        previewContainer.innerHTML = html;
+        
+        if (previewSummary) {
+            previewSummary.textContent = `${result.totalRecords} registros para importar em ${totalBatches} lotes${result.duplicatesRemoved > 0 ? `, ${result.duplicatesRemoved} duplicatas removidas` : ''}`;
+        }
+        
+        if (confirmButton) {
+            confirmButton.style.display = 'inline-block';
+            confirmButton.innerHTML = '<i class="fas fa-rocket"></i> Iniciar Importação Inteligente';
+        }
+    }
+
+    // Confirmar importação aprimorada
+    async confirmBulkImportEnhanced() {
+        if (!this.enhancedBulkImport.bulkData || !this.enhancedBulkImport.bulkData.leads.length) {
+            this.showNotification('Nenhum dado para importar', 'error');
+            return;
+        }
+
+        const confirmButton = document.getElementById('confirmBulkImportButton');
+        if (!confirmButton) return;
+
+        // Confirmar com o usuário
+        const stats = this.enhancedBulkImport.getStats();
+        const confirmed = confirm(
+            `Iniciar importação inteligente?\n\n` +
+            `• ${stats.totalRecords} registros\n` +
+            `• ${this.enhancedBulkImport.batches.length} lotes\n` +
+            `• Retry automático em caso de falha\n` +
+            `• Progresso em tempo real\n\n` +
+            `Continuar?`
+        );
+        
+        if (!confirmed) return;
+
+        console.log('🚀 Iniciando importação inteligente...');
+        
+        // Ocultar pré-visualização
+        const previewSection = document.getElementById('bulkPreviewSection');
+        if (previewSection) {
+            previewSection.style.display = 'none';
+        }
+        
+        // Iniciar importação
+        await this.enhancedBulkImport.startImport();
+    }
+
+    // Limpar dados aprimorado
+    clearBulkDataEnhanced() {
+        const textarea = document.getElementById('bulkDataTextarea');
+        const previewSection = document.getElementById('bulkPreviewSection');
+        const resultsSection = document.getElementById('bulkResultsSection');
+        
+        if (textarea) {
+            textarea.value = '';
+        }
+        
+        if (previewSection) {
+            previewSection.style.display = 'none';
+        }
+        
+        if (resultsSection) {
+            resultsSection.style.display = 'none';
+        }
+        
+        // Reset do sistema
+        this.enhancedBulkImport.reset();
+        
+        this.showNotification('Dados limpos com sucesso', 'success');
+    }
+
+    // Editar dados aprimorado
+    editBulkDataEnhanced() {
+        const previewSection = document.getElementById('bulkPreviewSection');
+        if (previewSection) {
+            previewSection.style.display = 'none';
+        }
+        
+        const textarea = document.getElementById('bulkDataTextarea');
+        if (textarea) {
+            textarea.focus();
+        }
+        
+        // Reset parcial (manter dados na textarea)
+        this.enhancedBulkImport.batches = [];
+        this.enhancedBulkImport.currentBatchIndex = 0;
+        this.enhancedBulkImport.clearCache();
     }
 
     // Bulk Import Methods
@@ -774,10 +982,37 @@ class AdminPanel {
         }
     }
 
+    // Verificar importação pendente ao inicializar
+    checkPendingImport() {
+        if (this.enhancedBulkImport.hasPendingImport()) {
+            const stats = this.enhancedBulkImport.getStats();
+            
+            const resume = confirm(
+                `Importação pendente detectada!\n\n` +
+                `• ${stats.processedRecords}/${stats.totalRecords} registros processados\n` +
+                `• ${stats.successfulRecords} sucessos, ${stats.failedRecords} erros\n` +
+                `• Lote atual: ${stats.currentBatch}/${stats.totalBatches}\n\n` +
+                `Deseja continuar a importação?`
+            );
+            
+            if (resume) {
+                this.showView('bulkAddView');
+                setTimeout(() => {
+                    this.enhancedBulkImport.resumeImport();
+                }, 500);
+            } else {
+                this.enhancedBulkImport.clearCache();
+            }
+        }
+    }
+
     refreshLeads() {
         console.log('🔄 Atualizando lista de leads...');
         this.loadLeads();
         this.showNotification('Lista atualizada com sucesso!', 'success');
+        
+        // Verificar importação pendente
+        this.checkPendingImport();
     }
 
     // Aplicar filtros aos leads

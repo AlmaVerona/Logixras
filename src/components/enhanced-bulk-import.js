@@ -914,6 +914,12 @@ export class EnhancedBulkImport {
             }
         });
         
+        // Mostrar overlay de importação
+        const importingOverlay = document.getElementById('importingOverlay');
+        if (importingOverlay) {
+            importingOverlay.style.display = 'flex';
+        }
+        
         console.log('🔒 Controles desativados durante importação');
     }
 
@@ -925,6 +931,12 @@ export class EnhancedBulkImport {
             control.style.opacity = '1';
             control.style.cursor = 'pointer';
         });
+        
+        // Ocultar overlay de importação
+        const importingOverlay = document.getElementById('importingOverlay');
+        if (importingOverlay) {
+            importingOverlay.style.display = 'none';
+        }
         
         console.log('🔓 Controles reativados');
     }

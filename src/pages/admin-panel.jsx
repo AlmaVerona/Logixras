@@ -336,10 +336,10 @@ class AdminPanel {
     async previewBulkDataEnhanced() {
         console.log('🔍 Iniciando análise inteligente dos dados...');
         
-        // Verificar se o textarea existe e tem dados
+        // Verificar se há dados na textarea
         const textarea = document.getElementById('bulkDataTextarea');
         if (!textarea) {
-            this.showBulkError('Campo de dados não encontrado. Recarregue a página.');
+            this.showBulkError('Textarea não encontrada');
             return;
         }
         
@@ -350,17 +350,17 @@ class AdminPanel {
         }
         
         try {
-            console.log('📋 Processando dados para análise...');
-            const result = this.bulkImportSystem.processData(rawData);
+            console.log('📊 Dados brutos recebidos:', rawData.substring(0, 200) + '...');
+            
+            // Usar o sistema de importação aprimorado
+            const result = this.enhancedBulkImport.processData(rawData);
             
             if (result.success) {
-                this.displayEnhancedPreview(result);
-            } else {
-                this.showBulkError(result.error || 'Erro desconhecido ao processar dados');
+                this.showBulkPreview(result);
             }
         } catch (error) {
-            console.error('❌ Erro na análise:', error);
-            this.showBulkError('Erro inesperado: ' + error.message);
+            console.error('❌ Erro ao analisar dados colados:', error);
+            this.showBulkError(`Erro ao processar dados: ${error.message}`);
         }
     }
 

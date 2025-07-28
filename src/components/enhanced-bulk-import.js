@@ -95,16 +95,12 @@ export class EnhancedBulkImport {
     parseRawData(rawData) {
         console.log('📊 Iniciando análise inteligente dos dados...');
         
-        // Verificação adicional de dados vazios
+        // Verificação de dados vazios
         if (!rawData || !rawData.trim()) {
             return {
                 leads: [],
                 duplicatesRemoved: [],
-                parseErrors: [{
-                    line: 0,
-                    content: '',
-                    error: 'Nenhum dado fornecido para análise'
-                }],
+                parseErrors: [],
                 databaseDuplicates: []
             };
         }
@@ -115,11 +111,7 @@ export class EnhancedBulkImport {
             return {
                 leads: [],
                 duplicatesRemoved: [],
-                parseErrors: [{
-                    line: 0,
-                    content: '',
-                    error: 'Nenhum dado válido encontrado para análise'
-                }],
+                parseErrors: [],
                 databaseDuplicates: []
             };
         }
@@ -147,8 +139,8 @@ export class EnhancedBulkImport {
                 const line = lines[i].trim();
                 if (!line) continue;
 
-                // Dividir por TAB ou múltiplos espaços
-                const fields = line.split(/\t+|\s{2,}/).map(field => field.trim());
+                // Dividir por TAB (formato de planilha)
+                const fields = line.split('\t').map(field => field.trim());
                 
                 if (fields.length < 14) {
                     console.warn(`Linha ${i + 1} ignorada: poucos campos (${fields.length}/14 campos encontrados)`);
@@ -202,6 +194,25 @@ export class EnhancedBulkImport {
                     continue;
                 }
 
+                // Validação de email
+                if (emailCliente && !this.isValidEmail(emailCliente)) {
+                    parseErrors.push({
+                        line: i + 1,
+                        content: line,
+                        error: 'Email inválido - deve conter @ e domínio válido'
+                    });
+                    continue;
+                }
+
+                // Validação de telefone (DDI + DDD + número)
+                if (telefoneCliente && !this.isValidPhone(telefoneCliente)) {
+                    parseErrors.push({
+                        line: i + 1,
+                        content: line,
+                        error: 'Telefone inválido - deve ter DDI + DDD + número (12-13 dígitos)'
+                    });
+                    continue;
+                }
                 // 1. Verificar duplicados na mesma lista (SILENCIOSO)
                 if (duplicatesInList.has(duplicateKey)) {
                     duplicatesRemoved.push({ 
@@ -238,8 +249,8 @@ export class EnhancedBulkImport {
                     pais: pais || 'BR'
                 });
 
-                // Processar valor (remover vírgulas e converter)
-                const valorProcessado = parseFloat((valorTotalVenda || '0').replace(',', '.')) || 67.9;
+                // Processar valor (aceitar vírgula ou ponto como separador decimal)
+                const valorProcessado = this.parseDecimalValue(valorTotalVenda) || 47.39;
 
                 // Criar lead com dados processados
                 const leadData = {
@@ -247,7 +258,7 @@ export class EnhancedBulkImport {
                     email: emailCliente || '',
                     telefone: telefoneCliente || '',
                     cpf: cleanCPF,
-                    produto: produto || 'Kit 12 caixas organizadoras + brinde',
+                    produto: produto || 'Kit 262 Cores Canetinhas Coloridas Edição Especial Com Ponta Dupla',
                     valor_total: valorProcessado,
                     endereco: enderecoCompleto,
                     meio_pagamento: 'PIX',
@@ -256,7 +267,7 @@ export class EnhancedBulkImport {
                     status_pagamento: 'pendente',
                     order_bumps: [],
                     produtos: [{
-                        nome: produto || 'Kit 12 caixas organizadoras + brinde',
+                        nome: produto || 'Kit 262 Cores Canetinhas Coloridas Edição Especial Com Ponta Dupla',
                         preco: valorProcessado
                     }],
                     lineNumber: i + 1
@@ -292,6 +303,29 @@ export class EnhancedBulkImport {
         };
     }
 
+    // Validar email
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    // Validar telefone (DDI + DDD + número)
+    isValidPhone(phone) {
+        const cleanPhone = phone.replace(/[^\d]/g, '');
+        // Deve ter entre 12-13 dígitos (DDI + DDD + número)
+        return cleanPhone.length >= 12 && cleanPhone.length <= 13;
+    }
+
+    // Processar valor decimal (aceita vírgula ou ponto)
+    parseDecimalValue(value) {
+        if (!value) return 0;
+        
+        // Remover espaços e converter vírgula para ponto
+        const cleanValue = value.toString().trim().replace(',', '.');
+        const parsed = parseFloat(cleanValue);
+        
+        return isNaN(parsed) ? 0 : parsed;
+    }
     buildAddressFromFields({ rua, numero, complemento, bairro, cep, cidade, estado, pais }) {
         return `${rua}, ${numero}${complemento ? ` - ${complemento}` : ''} - ${bairro} - ${cidade}/${estado} - CEP: ${cep} - ${pais}`;
     }

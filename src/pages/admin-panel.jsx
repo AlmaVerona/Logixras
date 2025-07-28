@@ -336,10 +336,10 @@ class AdminPanel {
     async previewBulkDataEnhanced() {
         console.log('🔍 Iniciando análise inteligente dos dados...');
         
-        // Check if textarea exists and has data
+        // Verificar se o textarea existe e tem dados
         const textarea = document.getElementById('bulkDataTextarea');
         if (!textarea) {
-            this.showBulkError('Erro: Campo de texto não encontrado.');
+            this.showBulkError('Campo de dados não encontrado. Recarregue a página.');
             return;
         }
         
@@ -350,10 +350,8 @@ class AdminPanel {
         }
         
         try {
-            console.log('📊 Dados brutos obtidos, iniciando processamento...');
-            
-            // Usar o sistema aprimorado de importação em massa
-            const result = this.enhancedBulkImport.processData(rawData);
+            console.log('📋 Processando dados para análise...');
+            const result = this.bulkImportSystem.processData(rawData);
             
             if (result.success) {
                 this.displayEnhancedPreview(result);

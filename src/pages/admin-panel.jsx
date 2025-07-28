@@ -355,7 +355,7 @@ class AdminPanel {
             return;
         }
 
-        const rawData = bulkDataTextareaElement.value.trim();
+        rawData = bulkDataTextareaElement.value.trim();
         if (!rawData) {
             this.showBulkError('Nenhum dado foi colado para análise. Por favor, cole os dados da planilha na caixa de texto.');
             return;

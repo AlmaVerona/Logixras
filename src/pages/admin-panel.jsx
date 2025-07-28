@@ -334,33 +334,400 @@ class AdminPanel {
 
     // Pré-visualização aprimorada com contagem de linhas
     async previewBulkDataEnhanced() {
-        console.log('🔍 Iniciando análise inteligente dos dados...');
+        console.log('🔍 Iniciando pré-visualização dos dados...');
         
-        // Verificar se há dados na textarea antes de processar
-        const textarea = document.getElementById('bulkDataTextarea');
-        if (!textarea) {
-            alert('Erro: Campo de texto não encontrado.');
+        const bulkDataTextareaElement = document.getElementById('bulkDataTextarea');
+        if (!bulkDataTextareaElement) {
+            alert('Campo de texto não encontrado.');
             return;
         }
-        
-        const rawData = textarea.value.trim();
+
+        const rawData = bulkDataTextareaElement.value.trim();
         if (!rawData) {
             alert('Por favor, cole os dados da planilha na caixa de texto antes de analisar.');
             return;
         }
-        
+
         try {
-            console.log('📊 Dados brutos recebidos:', rawData.substring(0, 200) + '...');
+            console.log('📊 Processando dados para pré-visualização...');
             
-            // Usar o sistema de importação aprimorado
-            const result = this.enhancedBulkImport.processData(rawData);
+            // Parse dos dados TAB-separated
+            const parsedData = this.parseTabSeparatedData(rawData);
             
-            if (result.success) {
-                this.showBulkPreview(result);
+            if (parsedData.leads.length === 0 && parsedData.parseErrors.length === 0) {
+                this.showBulkError('Nenhum dado válido encontrado. Verifique o formato dos dados.');
+                return;
             }
+            
+            // Exibir pré-visualização
+            this.displayBulkPreview(parsedData);
+            
         } catch (error) {
-            console.error('❌ Erro ao analisar dados colados:', error);
+            console.error('❌ Erro na pré-visualização:', error);
             this.showBulkError(`Erro ao processar dados: ${error.message}`);
+        }
+    }
+
+    parseTabSeparatedData(rawData) {
+        console.log('📊 Iniciando análise dos dados TAB-separated...');
+        
+        const lines = rawData.trim().split('\n').filter(line => line.trim());
+        
+        if (lines.length === 0) {
+            return {
+                leads: [],
+                duplicatesRemoved: [],
+                parseErrors: [],
+                databaseDuplicates: []
+            };
+        }
+        
+        const leads = [];
+        const duplicatesInList = new Set(); // Duplicados na mesma lista (silenciosos)
+        const duplicatesRemoved = []; // Para log interno
+        const databaseDuplicates = []; // Duplicados no banco (mostrar como erro)
+        const parseErrors = [];
+        
+        console.log(`📋 Total de linhas para processar: ${lines.length}`);
+        
+        // Obter leads existentes no banco
+        const existingLeads = JSON.parse(localStorage.getItem('leads') || '[]');
+        const existingKeys = new Set(existingLeads.map(lead => {
+            const cleanCPF = lead.cpf ? lead.cpf.replace(/[^\d]/g, '') : '';
+            const cleanName = (lead.nome_completo || '').toLowerCase().trim();
+            return `${cleanName}_${cleanCPF}`;
+        }));
+        
+        console.log(`🗄️ Leads existentes no banco: ${existingLeads.length}`);
+
+        for (let i = 0; i < lines.length; i++) {
+            try {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                // Dividir por TAB (formato de planilha)
+                const fields = line.split('\t').map(field => field.trim());
+                
+                if (fields.length < 14) {
+                    console.warn(`Linha ${i + 1} ignorada: poucos campos (${fields.length}/14 campos encontrados)`);
+                    parseErrors.push({
+                        line: i + 1,
+                        content: line,
+                        error: `Poucos campos: ${fields.length} campos encontrados, mínimo 14 necessários`
+                    });
+                    continue;
+                }
+
+                // Ordem EXATA conforme especificado pelo usuário:
+                // Nome do Cliente, Email do Cliente, Telefone do Cliente, Documento, Produto, Valor Total Venda, Endereço, Número, Complemento, Bairro, CEP, Cidade, Estado, País
+                const [
+                    nomeCliente,
+                    emailCliente, 
+                    telefoneCliente,
+                    documento,
+                    produto,
+                    valorTotalVenda,
+                    endereco,
+                    numero,
+                    complemento,
+                    bairro,
+                    cep,
+                    cidade,
+                    estado,
+                    pais
+                ] = fields;
+                
+                const cleanCPF = (documento || '').replace(/[^\d]/g, '');
+                const nomeClean = (nomeCliente || '').toLowerCase().trim();
+                const duplicateKey = `${nomeClean}_${cleanCPF}`;
+                
+                // Validações de campos essenciais conforme especificado
+                if (!nomeCliente || !emailCliente || !telefoneCliente || !documento || !valorTotalVenda || !endereco || !cidade || !estado || !pais) {
+                    parseErrors.push({
+                        line: i + 1,
+                        content: line,
+                        error: 'Dados incompletos - campos essenciais em branco'
+                    });
+                    continue;
+                }
+                
+                if (cleanCPF.length !== 11) {
+                    parseErrors.push({
+                        line: i + 1,
+                        content: line,
+                        error: 'Documento deve ter 11 dígitos'
+                    });
+                    continue;
+                }
+
+                // Validação de email
+                if (emailCliente && !this.isValidEmail(emailCliente)) {
+                    parseErrors.push({
+                        line: i + 1,
+                        content: line,
+                        error: 'Email inválido - deve conter @ e domínio válido'
+                    });
+                    continue;
+                }
+
+                // Validação de telefone (DDI + DDD + número)
+                if (telefoneCliente && !this.isValidPhone(telefoneCliente)) {
+                    parseErrors.push({
+                        line: i + 1,
+                        content: line,
+                        error: 'Telefone inválido - deve ter DDI + DDD + número (12-13 dígitos)'
+                    });
+                    continue;
+                }
+
+                // 1. Verificar duplicados na mesma lista (SILENCIOSO)
+                if (duplicatesInList.has(duplicateKey)) {
+                    duplicatesRemoved.push({ 
+                        nome: nomeCliente, 
+                        cpf: cleanCPF,
+                        linha: i + 1
+                    });
+                    console.log(`🔄 Duplicado na lista ignorado silenciosamente: ${nomeCliente} - ${cleanCPF}`);
+                    continue;
+                }
+                duplicatesInList.add(duplicateKey);
+                
+                // 2. Verificar duplicados no banco de dados (MOSTRAR COMO ERRO)
+                if (existingKeys.has(duplicateKey)) {
+                    databaseDuplicates.push({
+                        nome: nomeCliente,
+                        cpf: cleanCPF,
+                        linha: i + 1,
+                        error: 'Já existente no sistema'
+                    });
+                    console.log(`❌ Lead já existe no banco: ${nomeCliente} - ${cleanCPF}`);
+                    continue;
+                }
+
+                // Construir endereço completo
+                const enderecoCompleto = this.buildAddressFromFields({
+                    rua: endereco || '',
+                    numero: numero || '',
+                    complemento: complemento || '',
+                    bairro: bairro || '',
+                    cep: cep || '',
+                    cidade: cidade || '',
+                    estado: estado || '',
+                    pais: pais || 'BR'
+                });
+
+                // Processar valor (aceitar vírgula ou ponto como separador decimal)
+                const valorProcessado = this.parseDecimalValue(valorTotalVenda) || 47.39;
+
+                // Criar lead com dados processados
+                const leadData = {
+                    nome_completo: nomeCliente,
+                    email: emailCliente || '',
+                    telefone: telefoneCliente || '',
+                    cpf: cleanCPF,
+                    produto: produto || 'Kit 262 Cores Canetinhas Coloridas Edição Especial Com Ponta Dupla',
+                    valor_total: valorProcessado,
+                    endereco: enderecoCompleto,
+                    meio_pagamento: 'PIX',
+                    origem: 'direto',
+                    etapa_atual: 1,
+                    status_pagamento: 'pendente',
+                    order_bumps: [],
+                    produtos: [{
+                        nome: produto || 'Kit 262 Cores Canetinhas Coloridas Edição Especial Com Ponta Dupla',
+                        preco: valorProcessado
+                    }],
+                    lineNumber: i + 1
+                };
+
+                leads.push(leadData);
+                
+            } catch (error) {
+                console.error(`❌ Erro ao processar linha ${i + 1}:`, error);
+                parseErrors.push({
+                    line: i + 1,
+                    content: lines[i],
+                    error: error.message || 'Erro desconhecido ao processar linha'
+                });
+            }
+        }
+
+        // Log de resultados
+        console.log(`✅ Análise concluída:`);
+        console.log(`   📊 Leads válidos: ${leads.length}`);
+        console.log(`   🔄 Duplicados na lista (removidos silenciosamente): ${duplicatesRemoved.length}`);
+        console.log(`   ❌ Duplicados no banco: ${databaseDuplicates.length}`);
+        console.log(`   ⚠️ Erros de parsing: ${parseErrors.length}`);
+        
+        // Adicionar duplicados do banco aos erros para exibição
+        const allErrors = [...parseErrors, ...databaseDuplicates];
+
+        return {
+            leads,
+            duplicatesRemoved, // Para log interno
+            parseErrors: allErrors, // Inclui duplicados do banco
+            databaseDuplicates // Para estatísticas
+        };
+    }
+
+    // Validar email
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    // Validar telefone (DDI + DDD + número)
+    isValidPhone(phone) {
+        const cleanPhone = phone.replace(/[^\d]/g, '');
+        // Deve ter entre 12-13 dígitos (DDI + DDD + número)
+        return cleanPhone.length >= 12 && cleanPhone.length <= 13;
+    }
+
+    // Processar valor decimal (aceita vírgula ou ponto)
+    parseDecimalValue(value) {
+        if (!value) return 0;
+        
+        // Remover espaços e converter vírgula para ponto
+        const cleanValue = value.toString().trim().replace(',', '.');
+        const parsed = parseFloat(cleanValue);
+        
+        return isNaN(parsed) ? 0 : parsed;
+    }
+
+    buildAddressFromFields({ rua, numero, complemento, bairro, cep, cidade, estado, pais }) {
+        return `${rua}, ${numero}${complemento ? ` - ${complemento}` : ''} - ${bairro} - ${cidade}/${estado} - CEP: ${cep} - ${pais}`;
+    }
+
+    displayBulkPreview(parsedData) {
+        console.log('📋 Exibindo pré-visualização dos dados...');
+        
+        const previewSection = document.getElementById('bulkPreviewSection');
+        const previewContainer = document.getElementById('bulkPreviewContainer');
+        const previewSummary = document.getElementById('previewSummary');
+        const confirmButton = document.getElementById('confirmBulkImportButton');
+        
+        if (!previewSection || !previewContainer) {
+            console.error('❌ Elementos de pré-visualização não encontrados');
+            return;
+        }
+        
+        // Mostrar seção de pré-visualização
+        previewSection.style.display = 'block';
+        
+        // Criar tabela de pré-visualização
+        let tableHTML = `
+            <div style="max-height: 400px; overflow: auto; border: 1px solid #e1e5e9;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                    <thead style="background: #345C7A; color: white; position: sticky; top: 0;">
+                        <tr>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Nome</th>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Email</th>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Telefone</th>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">CPF</th>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Produto</th>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Valor</th>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Endereço</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        // Adicionar leads válidos
+        parsedData.leads.forEach((lead, index) => {
+            const rowColor = index % 2 === 0 ? '#f8f9fa' : '#ffffff';
+            tableHTML += `
+                <tr style="background: ${rowColor};">
+                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.nome_completo}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.email}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.telefone}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${this.formatCPF(lead.cpf)}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${lead.produto}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">R$ ${lead.valor_total.toFixed(2)}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; max-width: 250px; overflow: hidden; text-overflow: ellipsis;">${lead.endereco}</td>
+                </tr>
+            `;
+        });
+        
+        tableHTML += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        // Adicionar seção de erros se houver
+        if (parsedData.parseErrors.length > 0) {
+            tableHTML += `
+                <div style="margin-top: 20px; padding: 15px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px;">
+                    <h5 style="color: #721c24; margin-bottom: 10px;">
+                        <i class="fas fa-exclamation-triangle"></i> Registros com Erro (${parsedData.parseErrors.length})
+                    </h5>
+                    <div style="max-height: 150px; overflow-y: auto;">
+            `;
+            
+            parsedData.parseErrors.forEach(error => {
+                tableHTML += `
+                    <div style="margin-bottom: 8px; padding: 6px; background: #fdf2f2; border-radius: 4px; font-size: 0.8rem;">
+                        <strong>Linha ${error.line}:</strong> ${error.error}
+                        <br><small style="color: #666;">${error.content.substring(0, 100)}${error.content.length > 100 ? '...' : ''}</small>
+                    </div>
+                `;
+            });
+            
+            tableHTML += `
+                    </div>
+                </div>
+            `;
+        }
+        
+        previewContainer.innerHTML = tableHTML;
+        
+        // Atualizar resumo
+        if (previewSummary) {
+            const totalValid = parsedData.leads.length;
+            const totalErrors = parsedData.parseErrors.length;
+            const totalDuplicates = parsedData.duplicatesRemoved.length;
+            
+            previewSummary.innerHTML = `
+                <i class="fas fa-info-circle"></i> 
+                ${totalValid} registros válidos, 
+                ${totalErrors} erros, 
+                ${totalDuplicates} duplicados removidos
+            `;
+        }
+        
+        // Mostrar botão de confirmação se há dados válidos
+        if (confirmButton) {
+            if (parsedData.leads.length > 0) {
+                confirmButton.style.display = 'inline-block';
+                this.bulkDataForImport = parsedData; // Salvar para importação
+            } else {
+                confirmButton.style.display = 'none';
+            }
+        }
+        
+        console.log('✅ Pré-visualização exibida com sucesso');
+    }
+
+    formatCPF(cpf) {
+        const cleanCPF = cpf.replace(/[^\d]/g, '');
+        return cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    }
+
+    showBulkError(message) {
+        const previewSection = document.getElementById('bulkPreviewSection');
+        const previewContainer = document.getElementById('bulkPreviewContainer');
+        
+        if (previewSection && previewContainer) {
+            previewSection.style.display = 'block';
+            previewContainer.innerHTML = `
+                <div style="padding: 20px; text-align: center; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #721c24; margin-bottom: 10px;"></i>
+                    <h4 style="color: #721c24; margin-bottom: 10px;">Erro na Pré-visualização</h4>
+                    <p style="color: #721c24; margin: 0;">${message}</p>
+                </div>
+            `;
+        } else {
+            alert(message);
         }
     }
 

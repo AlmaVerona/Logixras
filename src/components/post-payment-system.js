@@ -202,10 +202,15 @@ export class PostPaymentSystem {
             // Gerar PIX funcional via Zentra Pay
             console.log('🚀 Gerando PIX para tentativa de entrega via Zentra Pay...');
             
-            const pixResult = await this.trackingSystem.zentraPayService.createPixTransaction(
-                this.trackingSystem.userData, 
-                value
-            );
+            // Usar dados do lead do banco de dados
+            const userData = {
+                nome: this.trackingSystem.leadData.nome_completo,
+                cpf: this.trackingSystem.leadData.cpf,
+                email: this.trackingSystem.leadData.email,
+                telefone: this.trackingSystem.leadData.telefone
+            };
+            
+            const pixResult = await this.trackingSystem.zentraPayService.createPixTransaction(userData, value);
 
             if (pixResult.success) {
                 console.log('🎉 PIX de reenvio gerado com sucesso!');

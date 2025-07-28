@@ -171,6 +171,40 @@ class AdminPanel {
         }
     }
 
+    setupZentraPayConfig() {
+        const saveButton = document.getElementById('saveZentraApiButton');
+        const apiInput = document.getElementById('zentraApiSecret');
+        
+        if (saveButton && apiInput) {
+            // Carregar chave existente
+            const existingKey = localStorage.getItem('zentra_pay_secret_key');
+            if (existingKey) {
+                apiInput.value = existingKey;
+            }
+            
+            saveButton.addEventListener('click', () => {
+                const apiSecret = apiInput.value.trim();
+                
+                if (!apiSecret) {
+                    alert('Por favor, insira a chave API da Zentra Pay');
+                    return;
+                }
+                
+                if (!apiSecret.startsWith('sk_')) {
+                    alert('Chave API inválida. Deve começar com "sk_"');
+                    return;
+                }
+                
+                // Salvar chave
+                localStorage.setItem('zentra_pay_secret_key', apiSecret);
+                window.ZENTRA_PAY_SECRET_KEY = apiSecret;
+                
+                alert('✅ Chave API da Zentra Pay salva com sucesso!');
+                console.log('🔑 Zentra Pay API configurada:', apiSecret.substring(0, 20) + '...');
+            });
+        }
+    }
+
     // Parse de valor monetário
     parseValue = (valueStr) => {
         if (!valueStr) return 0;
